@@ -23,8 +23,7 @@ APP_7=rlogin
   pri=$(($fac * 8 + $sev))      # priority
   n=$((RANDOM % 255))           # 送信元 IP の後半
   host=host_$n                  # hostname
-  app=\$APP_$((RANDOM % 8))
-  app=$(echo $app)              # application name
+  app=$(eval echo \$APP_$((RANDOM % 8))) # application name
   pid=$!                        # pid
   mid=ID$((RANDOM))             # message id
 
