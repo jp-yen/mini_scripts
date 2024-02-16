@@ -3,6 +3,11 @@
 # 送信メッセージ数
 count=1000
 
+# 送信元 IP の前半
+src_IP_prefix=192.168.0
+# syslog サーバ
+syslog_srv=192.168.0.10
+
 APP_0=init
 APP_1=inetd
 APP_2=nfsd
@@ -16,7 +21,7 @@ APP_7=rlogin
   fac=$((RANDOM % 12))          # Facility
   sev=$((RANDOM % 8))           # Severity
   pri=$(($fac * 8 + $sev))      # priority
-  n=$((RANDOM % 255))           # ip addr
+  n=$((RANDOM % 255))           # 送信元 IP の後半
   host=host_$n                  # hostname
   app=\$APP_$((RANDOM % 8))
   app=$(echo $app)              # application name
@@ -29,8 +34,8 @@ APP_7=rlogin
   log_file=$( mktemp syslog-gen_XXXXXXXX )
   eval echo -n "\<$pri\> 1 $date $host $app $pid $mid The quick brown fox jumps over the lazy dog" > $log_file
   # cat $log_file ; rm $log_file
-  len=$(du -b $log_file)
-  ( hping3 -q -2 -i u10 -c 1 -p 514 -d $len -E $log_file -a 192.168.110.$n 192.168.110.238 ; rm $log_file )&
+  len=$(ls -l $log_file | awk '{print $5}')
+  ( hping3 -q -2 -i u10 -c 1 -p 514 -d $len -E $log_file -a ${src_IP_prefix}.$n $syslog_srv ; rm $log_file )&
 
   # 同時実行数の制限
   while : ; do
