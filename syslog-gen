@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# 送信メッセージ数
+count=1000
+
+APP_0=init
+APP_1=inetd
+APP_2=nfsd
+APP_3=ypbind
+APP_4=ypserv
+APP_5=rpcinfo
+APP_6=rsh
+APP_7=rlogin
+
+ for ((i=0; i<$count; i++)); do
+  fac=$((RANDOM % 12))          # Facility
+  sev=$((RANDOM % 8))           # Severity
+  pri=$(($fac * 8 + $sev))      # priority
+  n=$((RANDOM % 255))           # ip addr
+  host=host_$n                  # hostname
+  app=\$APP_$((RANDOM % 8))
+  app=$(echo $app)              # application name
+  pid=$!                        # pid
+  mid=ID$((RANDOM))             # message id
+
+  # date=$(env LANG=C date +"%b %d %T")
+  date=$(LANG=C date +"%F %X %z")
+
+  log_file=$( mktemp syslog-gen_XXXXXXXX )
+  eval echo -n "\<$pri\> 1 $date $host $app $pid $mid The quick brown fox jumps over the lazy dog" > $log_file
+  # cat $log_file ; rm $log_file
+  len=$(du -b $log_file)
+  ( hping3 -q -2 -i u10 -c 1 -p 514 -d $len -E $log_file -a 192.168.110.$n 192.168.110.238 ; rm $log_file )&
+
+  # 同時実行数の制限
+  while : ; do
+    if [ $(pgrep -c hping) -gt 10 ] ; then
+      sleep 1
+    else
+      break
+    fi
+  done
+done
