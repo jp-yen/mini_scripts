@@ -169,7 +169,7 @@ void time_print(char *time_string) {
     }
   }
 
-  mvprintw(16, 54, "%s", time_string);
+  mvprintw(16, 52, "%s", time_string);
   refresh();      // 表示の更新
   curs_set(TRUE); // カーソルの表示
   echo();         // エコーバックon
@@ -178,22 +178,26 @@ void time_print(char *time_string) {
 // 時刻表示 & 次の割り込み時刻を計算
 void handler(int sig) {
   struct timeval tv;
-  char time_string[100];
+  char time_string[20];
   long milliseconds;
 
   // 次の割り込みを作成
-  struct sigaction sa;
-  struct itimerspec ts;
-  timer_t timerid;
+  static struct sigaction sa;
+  static struct itimerspec ts;
+  static timer_t timerid;
+  static int initialized = 0;
 
-  // 割り込みハンドラを設定
-  sa.sa_handler = handler;
-  sa.sa_flags = 0;
-  sigemptyset(&sa.sa_mask);
-  sigaction(SIGALRM, &sa, NULL);
+  if (!initialized) {
+    // 割り込みハンドラを設定
+    sa.sa_handler = handler;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGALRM, &sa, NULL);
 
-  // POSIXタイマーを作成
-  timer_create(CLOCK_REALTIME, NULL, &timerid);
+    // POSIXタイマーを作成
+    timer_create(CLOCK_REALTIME, NULL, &timerid);
+    initialized = 1;
+  }
 
   // 現在の時刻を取得
   gettimeofday(&tv, NULL);
