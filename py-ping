@@ -1,0 +1,179 @@
+#!/usr/bin/python3
+
+import socket
+import time
+import struct
+import select
+import argparse
+import signal
+import sys
+from datetime import datetime, timezone
+import threading
+import ctypes
+
+# グローバル変数
+ping_count = 0
+success_count = 0
+failure_count = 0
+total_time = 0
+min_time = float('inf')
+max_time = float('-inf')
+start_time = None
+threads = []
+stop_event = threading.Event()
+
+def checksum(source_string):
+    sum = 0
+    count_to = (len(source_string) // 2) * 2
+    count = 0
+
+    while count < count_to:
+        this_val = source_string[count + 1] * 256 + source_string[count]
+        sum = sum + this_val
+        sum = sum & 0xffffffff
+        count = count + 2
+
+    if count_to < len(source_string):
+        sum = sum + source_string[len(source_string) - 1]
+        sum = sum & 0xffffffff
+
+    sum = (sum >> 16) + (sum & 0xffff)
+    sum = sum + (sum >> 16)
+    answer = ~sum
+    answer = answer & 0xffff
+    answer = answer >> 8 | (answer << 8 & 0xff00)
+    return answer
+
+def create_packet(id, sequence, packet_size):
+    header = struct.pack('bbHHh', 8, 0, 0, id, sequence)
+    data = (packet_size - 8) * b'Q'  # データ部分のサイズを指定
+    my_checksum = checksum(header + data)
+    header = struct.pack('bbHHh', 8, 0, socket.htons(my_checksum), id, sequence)
+    return header + data
+
+def ping(host, timeout=1, packet_size=64, ttl=255):
+    global success_count, failure_count, total_time, min_time, max_time, ping_count
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+        sock.settimeout(timeout)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
+
+        packet_id = int((id(timeout) * time.time()) % 65535)
+        sequence = ping_count
+        packet = create_packet(packet_id, sequence, packet_size)
+        send_time = time.time()
+        send_time_utc = datetime.fromtimestamp(send_time, tz=timezone.utc)
+        local_time = send_time_utc.astimezone()
+        sock.sendto(packet, (host, 1))
+        start_time_ping = time.time()
+        while True:
+            start_select = time.time()
+            what_ready = select.select([sock], [], [], timeout)
+            how_long_in_select = (time.time() - start_select)
+            if what_ready[0] == []:
+                print(f"{local_time.strftime('%H:%M:%S.%f')} icmp_seq={sequence} Request timed out.")
+                failure_count += 1
+                return
+
+            time_received = time.time()
+            rec_packet, addr = sock.recvfrom(1024)
+            icmp_header = rec_packet[20:28]
+            type, code, checksum, p_id, recv_sequence = struct.unpack('bbHHh', icmp_header)
+
+            if type == 11 and code == 0:
+                print(f"{local_time.strftime('%H:%M:%S.%f')} icmp_seq={sequence} Time to live exceeded")
+                failure_count += 1
+                return
+
+            if type == 3 and code == 1:
+                print(f"{local_time.strftime('%H:%M:%S.%f')} icmp_seq={sequence} No route to host")
+                failure_count += 1
+                return
+
+            if p_id == packet_id and recv_sequence == sequence:
+                ttl_received = struct.unpack('B', rec_packet[8:9])[0]
+                elapsed_time = (time_received - start_time_ping) * 1000
+                print(f"{local_time.strftime('%H:%M:%S.%f')} icmp_seq={sequence} {len(packet)} bytes Reply from {addr[0]}: TTL={ttl_received} time={elapsed_time:.3f}ms")
+                success_count += 1
+                total_time += elapsed_time
+                min_time = min(min_time, elapsed_time)
+                max_time = max(max_time, elapsed_time)
+                return
+
+            timeout -= how_long_in_select
+            if timeout <= 0:
+                print(f"{local_time.strftime('%H:%M:%S.%f')} icmp_seq={sequence} Request timed out.")
+                failure_count += 1
+                return
+
+    except socket.error as e:
+        print(f"Socket error: {e}")
+    finally:
+        if 'sock' in locals():
+            sock.close()
+
+def continuous_ping(signum, frame):
+    global ping_count
+
+    if ping_count >= args.count > 0 or stop_event.is_set():
+        stop_event.set()
+        return
+
+    ping_count += 1
+    thread = threading.Thread(target=ping, args=(args.host, args.timeout, args.packetsize, args.ttl))
+    threads.append(thread)
+    thread.start()
+
+def print_statistics():
+    global ping_count, success_count, failure_count, total_time, min_time, max_time
+    print("\n--- ping statistics ---")
+    print(f"{ping_count} packets transmitted, {success_count} received, {failure_count} errors")
+    if success_count > 0:
+        print(f"rtt min/avg/max = {min_time:.2f}/{total_time/success_count:.2f}/{max_time:.2f} ms")
+
+def signal_handler(sig, frame):
+    stop_event.set()
+    for thread in threads:
+        if thread.is_alive():
+            terminate_thread(thread)
+    print_statistics()
+    sys.exit(0)
+
+def terminate_thread(thread):
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        ctypes.c_long(thread.ident),
+        ctypes.py_object(SystemExit)
+    )
+    if res != 1:
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(thread.ident, 0)
+        print("Thread termination failed")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Ping a host with specified interval and timeout.")
+    parser.add_argument("host", type=str, help="The host to ping.")
+    parser.add_argument("-c", "--count", type=int, default=4, help="Number of pings to send. Default is 4. Use 0 for continuous.")
+    parser.add_argument("-i", "--interval", type=float, default=1.0, help="Interval between pings in seconds. Default is 1 second.")
+    parser.add_argument("-w", "--timeout", type=float, default=1.0, help="Timeout for each ping in seconds. Default is 1 second.")
+    parser.add_argument("-n", "--packetsize", type=int, default=64, help="Size of the ICMP packet. Default is 64 bytes.")
+    parser.add_argument("-t", "--ttl", type=int, default=255, help="Time to live for the packet.")
+
+    args = parser.parse_args()
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGALRM, continuous_ping)
+    rounding = 1 - datetime.now().microsecond / 1000000 # 秒以下の丸め
+
+    # Set up the timer to call continuous_ping at regular intervals
+    signal.setitimer(signal.ITIMER_REAL, rounding, args.interval)
+
+    # Wait for signals indefinitely
+    while not stop_event.is_set():
+        signal.pause()
+
+    # Wait for all threads to finish
+    for thread in threads:
+        thread.join()
+
+    # Print final statistics
+    print_statistics()
+    sys.exit(0)
