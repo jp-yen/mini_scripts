@@ -46,7 +46,7 @@ def checksum(source_string):
 
 def create_packet(id, sequence, packet_size):
     header = struct.pack('bbHHh', 8, 0, 0, id, sequence)
-    data = (packet_size - 8) * b'Q'  # データ部分のサイズを指定
+    data = (packet_size - 8) * b'Z'  # データ部分のサイズを指定
     my_checksum = checksum(header + data)
     header = struct.pack('bbHHh', 8, 0, socket.htons(my_checksum), id, sequence)
     return header + data
@@ -61,6 +61,9 @@ def ping(host, timeout=1, packet_size=64, ttl=255):
         packet_id = int((id(timeout) * time.time()) % 65535)
         sequence = ping_count
         packet = create_packet(packet_id, sequence, packet_size)
+        if ping_count == 1:
+            print(f"size (bytes): flame {len(packet) + 34} / ICMP packet {len(packet)} / data {len(packet) - 8}")
+
         send_time = time.time()
         send_time_utc = datetime.fromtimestamp(send_time, tz=timezone.utc)
         local_time = send_time_utc.astimezone()
@@ -93,7 +96,7 @@ def ping(host, timeout=1, packet_size=64, ttl=255):
             if p_id == packet_id and recv_sequence == sequence:
                 ttl_received = struct.unpack('B', rec_packet[8:9])[0]
                 elapsed_time = (time_received - start_time_ping) * 1000
-                print(f"{local_time.strftime('%H:%M:%S.%f')} icmp_seq={sequence} {len(packet)} bytes Reply from {addr[0]}: TTL={ttl_received} time={elapsed_time:.3f}ms")
+                print(f"{local_time.strftime('%H:%M:%S.%f')} icmp_seq={sequence} Reply from {addr[0]}: TTL={ttl_received} time={elapsed_time:.3f}ms")
                 success_count += 1
                 total_time += elapsed_time
                 min_time = min(min_time, elapsed_time)
@@ -115,6 +118,7 @@ def ping(host, timeout=1, packet_size=64, ttl=255):
 def continuous_ping(signum, frame):
     global ping_count
 
+    # signal を止める
     if ping_count >= args.count > 0 or stop_event.is_set():
         stop_event.set()
         return
@@ -124,12 +128,13 @@ def continuous_ping(signum, frame):
     threads.append(thread)
     thread.start()
 
+
 def print_statistics():
     global ping_count, success_count, failure_count, total_time, min_time, max_time
     print("\n--- ping statistics ---")
     print(f"{ping_count} packets transmitted, {success_count} received, {failure_count} errors")
     if success_count > 0:
-        print(f"rtt min/avg/max = {min_time:.2f}/{total_time/success_count:.2f}/{max_time:.2f} ms")
+        print(f"rtt min/avg/max = {min_time:.3f}/{total_time/success_count:.3f}/{max_time:.3f} ms")
 
 def signal_handler(sig, frame):
     stop_event.set()
@@ -139,6 +144,7 @@ def signal_handler(sig, frame):
     print_statistics()
     sys.exit(0)
 
+# [CTRL]+[C] で停止したときに動いているスレッドを止める
 def terminate_thread(thread):
     res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
         ctypes.c_long(thread.ident),
@@ -154,17 +160,41 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--count", type=int, default=4, help="Number of pings to send. Default is 4. Use 0 for continuous.")
     parser.add_argument("-i", "--interval", type=float, default=1.0, help="Interval between pings in seconds. Default is 1 second.")
     parser.add_argument("-w", "--timeout", type=float, default=1.0, help="Timeout for each ping in seconds. Default is 1 second.")
-    parser.add_argument("-n", "--packetsize", type=int, default=64, help="Size of the ICMP packet. Default is 64 bytes.")
-    parser.add_argument("-t", "--ttl", type=int, default=255, help="Time to live for the packet.")
-
+    parser.add_argument("-s", "--packetsize", type=int, default=64, help="Size of the ICMP packet. Default is 64 bytes.")
+    parser.add_argument("-t", "--ttl", type=int, default=64, help="Time to live for the packet.")
+    #
     args = parser.parse_args()
+
+    if args.count < 0:
+        print ("WARN: Set the count to 0")
+        args.count = 0
+
+    if args.interval < 0.001:
+        print ("WARN: Set the interval to 1.0")
+        args.interval = 1.0
+
+    if args.packetsize < 8:
+        print ("WARN: minimum packet size is 8. Set the size to 8")
+        args.packetsize = 8
+    elif 65515 < args.packetsize:
+        print ("WARN: max packet size is 65515. Set the size to 65515")
+        args.packetsize = 65514
+
+    if args.ttl < 0:
+        print ("WARN: minimum ttl is 0. Set the ttl to 0")
+        args.ttl = 0
+    elif 256 < args.ttl:
+        print ("WARN: max ttl is 255. Set the size to 255")
+        args.packetsize = 255
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGALRM, continuous_ping)
-    rounding = 1 - datetime.now().microsecond / 1000000 # 秒以下の丸め
 
     # Set up the timer to call continuous_ping at regular intervals
-    signal.setitimer(signal.ITIMER_REAL, rounding, args.interval)
+    # rounding = 1 - datetime.now().microsecond / 1000000 # 秒以下の丸め
+    # signal.setitimer(signal.ITIMER_REAL, rounding, args.interval)
+    signal.setitimer(signal.ITIMER_REAL, args.interval, args.interval)
+    continuous_ping(0, 0)
 
     # Wait for signals indefinitely
     while not stop_event.is_set():
