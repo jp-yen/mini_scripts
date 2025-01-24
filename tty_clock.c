@@ -4,32 +4,39 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <curses.h>
-// cc tty_clock.c -lncurses -lrt && ./a.out
+
+#define CHAR_X 9
+#define CHAR_Y 9
+
+// cc tty_clock.c -s -lncurses -lrt && ./a.out
 // 時刻表示
 
-void time_print(char *time_string) {
-  static int YX[19][2] = { // 文字の位置
-      {0, 0},  //  1 Y
-      {0, 8},  //  2 Y
-      {0, 16}, //  3 Y
-      {0, 24}, //  4 Y
-      {0, 32}, //    -
-      {0, 40}, //  6 M
-      {0, 48}, //  7 M
-      {0, 56}, //    -
-      {0, 64}, //  9 D
-      {0, 72}, // 10 D
-      {8, 0},  // 空白
-      {8, 16}, // 12 H
-      {8, 24}, // 13 H
-      {8, 32}, //    :
-      {8, 40}, // 15 M
-      {8, 48}, // 16 M
-      {8, 56}, //    :
-      {8, 64}, // 18 S
-      {8, 72}, // 19 S
+void time_print(char *time_string)
+{
+  static int YX[19][2] = {
+      // 文字の位置
+      {CHAR_Y * 0, CHAR_X * 0}, //  1 Y
+      {CHAR_Y * 0, CHAR_X * 1}, //  2 Y
+      {CHAR_Y * 0, CHAR_X * 2}, //  3 Y
+      {CHAR_Y * 0, CHAR_X * 3}, //  4 Y
+      {CHAR_Y * 0, CHAR_X * 4}, //    -
+      {CHAR_Y * 0, CHAR_X * 5}, //  6 M
+      {CHAR_Y * 0, CHAR_X * 6}, //  7 M
+      {CHAR_Y * 0, CHAR_X * 7}, //    -
+      {CHAR_Y * 0, CHAR_X * 8}, //  9 D
+      {CHAR_Y * 0, CHAR_X * 9}, // 10 D
+      {CHAR_Y * 1, CHAR_X * 0}, // 空白
+      {CHAR_Y * 1, CHAR_X * 2}, // 12 H
+      {CHAR_Y * 1, CHAR_X * 3}, // 13 H
+      {CHAR_Y * 1, CHAR_X * 4}, //    :
+      {CHAR_Y * 1, CHAR_X * 5}, // 15 M
+      {CHAR_Y * 1, CHAR_X * 6}, // 16 M
+      {CHAR_Y * 1, CHAR_X * 7}, //    :
+      {CHAR_Y * 1, CHAR_X * 8}, // 18 S
+      {CHAR_Y * 1, CHAR_X * 9}, // 19 S
   };
-  static char digits[13][8][9] = { // 12種, 8行, 8文字 + NULL
+  static char digits[13][8][9] = {
+      // 12種, 8行, 8文字 + NULL
       {// 0
        " ****** ",
        "*     **",
@@ -132,11 +139,11 @@ void time_print(char *time_string) {
       {// :
        "",
        "",
-       "   **   ",
-       "   **   ",
+       "   **",
+       "   **",
        "",
-       "   **   ",
-       "   **   ",
+       "   **",
+       "   **",
        ""},
       {// スペース
        "",
@@ -153,33 +160,57 @@ void time_print(char *time_string) {
   noecho();
   curs_set(FALSE); // カーソルの非表示
 
-  for (int i = 0; i < 19; i++) { // 'YYYY-MM-DD HH:MM:SS' 19文字
-    if (time_string[i] == '-') {
+  for (int i = 0; i < 19; i++)
+  { // 'YYYY-MM-DD HH:MM:SS' 19文字
+    switch (time_string[i])
+    {
+    case '-':
       string = 10;
-    } else if (time_string[i] == ':') {
+      break;
+    case ':':
       string = 11;
-    } else if (time_string[i] == ' ') {
+      break;
+    case ' ':
       string = 12;
-    } else {
+      break;
+    default:
       string = time_string[i] - '0';
     }
 
-    for (int j = 0; j < 8; j++) {
-      mvprintw(YX[i][0] + j, YX[i][1], "%s", digits[string][j]);
+    // ...existing code...
+    for (int j = 0; j < 8; j++)
+    {
+      for (int k = 0; k < 8; k++)
+      {
+        if (digits[string][j][k] == '*') // '*' を反転スペースに変換
+        {
+          attron(COLOR_PAIR(1) | A_REVERSE);
+          mvprintw(YX[i][0] + j, YX[i][1] + k, " ");
+          attroff(COLOR_PAIR(1) | A_REVERSE);
+        }
+        else
+        {
+          if (!digits[string][j][k])
+          {
+            break;
+          }
+          mvprintw(YX[i][0] + j, YX[i][1] + k, "%c", digits[string][j][k]);
+        }
+      }
     }
   }
 
-  mvprintw(16, 52, "%s", time_string);
+  mvprintw(CHAR_Y * 2, CHAR_X * 10 - 28, "%s", time_string);
   refresh();      // 表示の更新
   curs_set(TRUE); // カーソルの表示
   echo();         // エコーバックon
 }
 
 // 時刻表示 & 次の割り込み時刻を計算
-void handler(int sig) {
+void handler(int sig)
+{
   struct timeval tv;
-  char time_string[20];
-  long milliseconds;
+  char time_string[28];
 
   // 次の割り込みを作成
   static struct sigaction sa;
@@ -187,7 +218,8 @@ void handler(int sig) {
   static timer_t timerid;
   static int initialized = 0;
 
-  if (!initialized) {
+  if (!initialized)
+  {
     // 割り込みハンドラを設定
     sa.sa_handler = handler;
     sa.sa_flags = 0;
@@ -212,32 +244,38 @@ void handler(int sig) {
   ts.it_value.tv_nsec = nanoseconds_to_wait;
   ts.it_interval.tv_sec = 0; // 定期的な割り込みはしない
   ts.it_interval.tv_nsec = 0;
+  timer_settime(timerid, 0, &ts, NULL);
 
-  if (nanoseconds_to_wait < 950000) {
-    ts.it_value.tv_nsec = 950000; // 一旦 0.95秒待ってプロセスを起こし、残り時間を待つ
-    timer_settime(timerid, 0, &ts, NULL);
-    return;
-  } else {
-    timer_settime(timerid, 0, &ts, NULL);
-  }
-
-  strftime(time_string, sizeof(time_string), "%Y-%m-%d %T", localtime(&tv.tv_sec));
-
-  // 時刻を表示
-  milliseconds = tv.tv_usec / 1000;
-  sprintf(time_string, "%s.%06ld", time_string, tv.tv_usec);
+  // 文字列を生成、表示ルーチンへ
+  snprintf(time_string, sizeof(time_string),
+           "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
+           localtime(&tv.tv_sec)->tm_year + 1900,
+           localtime(&tv.tv_sec)->tm_mon + 1,
+           localtime(&tv.tv_sec)->tm_mday,
+           localtime(&tv.tv_sec)->tm_hour,
+           localtime(&tv.tv_sec)->tm_min,
+           localtime(&tv.tv_sec)->tm_sec,
+           tv.tv_usec);
   time_print(time_string);
 
   return;
 }
 
-int main() {
-  initscr();  // cursess の初期化
+int main()
+{
+  initscr();                              // cursess の初期化
+  start_color();                          // カラー属性の初期化
+  init_pair(1, COLOR_WHITE, COLOR_BLACK); // カスタムカラーの設定
+
   handler(0); // 割り込みの開始
 
-  while (1) {
+  while (1)
+  {
     int ch = getch();
-    if (ch == 'q') { break; } // 'q'が入力されたらループを抜ける
+    if (ch == 'q')
+    {
+      break;
+    } // 'q'が入力されたらループを抜ける
 
     // 割り込みが発生するまで待機
     pause();
