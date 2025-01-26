@@ -10,16 +10,16 @@ import sys
 from datetime import datetime, timezone
 import threading
 import ctypes
+import numpy as np
+from colorama import Fore, Back, Style
 
 # グローバル変数
 ping_count = 0
 success_count = 0
 failure_count = 0
-total_time = 0
-min_time = float('inf')
-max_time = float('-inf')
 start_time = None
 threads = []
+icmp_response_times = []
 stop_event = threading.Event()
 
 def checksum(source_string):
@@ -46,13 +46,13 @@ def checksum(source_string):
 
 def create_packet(id, sequence, packet_size):
     header = struct.pack('bbHHh', 8, 0, 0, id, sequence)
-    data = (packet_size - 8) * b'Z'  # データ部分のサイズを指定
+    data = (packet_size - 8) * b'Z'  # 'Z' をパケットサイズ分並べる
     my_checksum = checksum(header + data)
     header = struct.pack('bbHHh', 8, 0, socket.htons(my_checksum), id, sequence)
     return header + data
 
 def ping(host, timeout=1, packet_size=64, ttl=255):
-    global success_count, failure_count, total_time, min_time, max_time, ping_count
+    global success_count, failure_count, ping_count
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
         sock.settimeout(timeout)
@@ -62,7 +62,7 @@ def ping(host, timeout=1, packet_size=64, ttl=255):
         sequence = ping_count
         packet = create_packet(packet_id, sequence, packet_size)
         if ping_count == 1:
-            print(f"size (bytes): flame {len(packet) + 34} / ICMP packet {len(packet)} / data {len(packet) - 8}")
+            print(f"  size (bytes): flame {len(packet) + 34} / ICMP packet {len(packet)} / data {len(packet) - 8}")
 
         send_time = time.time()
         send_time_utc = datetime.fromtimestamp(send_time, tz=timezone.utc)
@@ -98,9 +98,7 @@ def ping(host, timeout=1, packet_size=64, ttl=255):
                 elapsed_time = (time_received - start_time_ping) * 1000
                 print(f"{local_time.strftime('%H:%M:%S.%f')} icmp_seq={sequence} Reply from {addr[0]}: TTL={ttl_received} time={elapsed_time:.3f}ms")
                 success_count += 1
-                total_time += elapsed_time
-                min_time = min(min_time, elapsed_time)
-                max_time = max(max_time, elapsed_time)
+                icmp_response_times.append(elapsed_time)
                 return
 
             timeout -= how_long_in_select
@@ -128,15 +126,55 @@ def continuous_ping(signum, frame):
     threads.append(thread)
     thread.start()
 
-
 def print_statistics():
-    global ping_count, success_count, failure_count, total_time, min_time, max_time
+    global ping_count, success_count, failure_count, icmp_response_times
+    signal.signal(signal.SIGALRM, signal.SIG_IGN) # シグナルを解除
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     print("\n--- ping statistics ---")
     print(f"{ping_count} packets transmitted, {success_count} received, {failure_count} errors")
-    if success_count > 0:
-        print(f"rtt min/avg/max = {min_time:.3f}/{total_time/success_count:.3f}/{max_time:.3f} ms")
+    if success_count > 9:
+        avg = np.mean(icmp_response_times)
+        stdev = np.std(icmp_response_times)
+        min_time = np.min(icmp_response_times)
+        max_time = np.max(icmp_response_times)
+        p10 = np.percentile(icmp_response_times, 10)
+        q1 = np.percentile(icmp_response_times, 25)
+        median = np.percentile(icmp_response_times, 50)
+        q3 = np.percentile(icmp_response_times, 75)
+        p90 = np.percentile(icmp_response_times, 90)
+        print(f"rtt min/avg/max/stddev = {min_time:.3f}/{avg:.3f}/{max_time:.3f}/{stdev:.3f} ms")
+        print(f"10th percentile: {p10:.3f} ms")     # 10パーセンタイル
+        print(f"Q1 (25percent) : {q1:.3f} ms")      # 第一四分位数
+        print(f"Median         : {median:.3f} ms")  # 中央値
+        print(f"Q3 (75percent) : {q3:.3f} ms")      # 第三四分位数
+        print(f"90th percentile: {p90:.3f} ms")     # 90パーセンタイル
+    elif success_count > 0:
+        avg = np.mean(icmp_response_times)
+        stdev = np.std(icmp_response_times)
+        min_time = np.min(icmp_response_times)
+        max_time = np.max(icmp_response_times)
+        q1 = np.percentile(icmp_response_times, 25)
+        median = np.percentile(icmp_response_times, 50)
+        q3 = np.percentile(icmp_response_times, 75)
+        print(f"rtt min/avg/max/stddev = {min_time:.3f}/{avg:.3f}/{max_time:.3f}/{stdev:.3f} ms")
+        print(f"Q1 (25percent) : {q1:.3f} ms")      # 第一四分位数
+        print(f"Median         : {median:.3f} ms")  # 中央値
+        print(f"Q3 (75percent) : {q3:.3f} ms")      # 第三四分位数
+
+    if success_count > 49:
+        # 外れ値 (上下端 5% を除外) した平均値を求める
+        sorted_times = sorted(icmp_response_times)
+        lower_bound = int(0.05 * success_count)
+        upper_bound = int(0.95 * success_count)
+        trimmed_times = sorted_times[lower_bound:upper_bound]
+        avg = np.mean(trimmed_times)
+        print(f"90% trimed avg : {avg:.3f} ms")
 
 def signal_handler(sig, frame):
+    signal.signal(signal.SIGALRM, signal.SIG_IGN) # シグナルを解除
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     stop_event.set()
     for thread in threads:
         if thread.is_alive():
@@ -162,39 +200,44 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--timeout", type=float, default=1.0, help="Timeout for each ping in seconds. Default is 1 second.")
     parser.add_argument("-s", "--packetsize", type=int, default=64, help="Size of the ICMP packet. Default is 64 bytes.")
     parser.add_argument("-t", "--ttl", type=int, default=64, help="Time to live for the packet.")
+    parser.add_argument("-0", "--zero",action='store_true')
     #
     args = parser.parse_args()
 
+    colorama.init()  # colorama の初期化
     if args.count < 0:
-        print ("WARN: Set the count to 0")
+        print (f"{Back.LIGHTRED_EX}WARN: Set the count to 0{Style.RESET_ALL}")
         args.count = 0
 
     if args.interval < 0.001:
-        print ("WARN: Set the interval to 1.0")
+        print (f"{Back.LIGHTRED_EX}WARN: Set the interval to 1.0{Style.RESET_ALL}")
         args.interval = 1.0
 
     if args.packetsize < 8:
-        print ("WARN: minimum packet size is 8. Set the size to 8")
+        print (f"{Back.LIGHTRED_EX}WARN: minimum packet size is 8. Set the size to 8{Style.RESET_ALL}")
         args.packetsize = 8
-    elif 65515 < args.packetsize:
-        print ("WARN: max packet size is 65515. Set the size to 65515")
-        args.packetsize = 65514
+    elif 1480 < args.packetsize:
+        print (f"{Back.LIGHTRED_EX}WARN: max packet size is 65515. Set the size to 1480{Style.RESET_ALL}")
+        args.packetsize = 1480
 
     if args.ttl < 0:
-        print ("WARN: minimum ttl is 0. Set the ttl to 0")
+        print (f"{Back.LIGHTRED_EX}WARN: minimum ttl is 0. Set the ttl to 0{Style.RESET_ALL}")
         args.ttl = 0
     elif 256 < args.ttl:
-        print ("WARN: max ttl is 255. Set the size to 255")
+        print (f"{Back.LIGHTRED_EX}WARN: max ttl is 255. Set the size to 255{Style.RESET_ALL}")
         args.packetsize = 255
-
+    
+    colorama.deinit()     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGALRM, continuous_ping)
 
     # Set up the timer to call continuous_ping at regular intervals
-    # rounding = 1 - datetime.now().microsecond / 1000000 # 秒以下の丸め
-    # signal.setitimer(signal.ITIMER_REAL, rounding, args.interval)
-    signal.setitimer(signal.ITIMER_REAL, args.interval, args.interval)
-    continuous_ping(0, 0)
+    if args.zero:
+        rounding = 1 - datetime.now().microsecond / 1000000 # 秒以下の丸め
+        signal.setitimer(signal.ITIMER_REAL, rounding, args.interval)
+    else:
+        signal.setitimer(signal.ITIMER_REAL, args.interval, args.interval)
+        continuous_ping(0, 0)
 
     # Wait for signals indefinitely
     while not stop_event.is_set():
@@ -207,3 +250,50 @@ if __name__ == "__main__":
     # Print final statistics
     print_statistics()
     sys.exit(0)
+
+"""
+### 実行例
+# python3 ./py-ping -0 -c 100 -i 0.01 -s 8 8.8.4.4
+  size (bytes): flame 42 / ICMP packet 8 / data 0     イーサーフレーム、ICMP パケット、データ部分のサイズを表示
+17:56:59.000676 icmp_seq=1 Reply from 8.8.4.4: TTL=114 time=2.628ms
+17:56:59.010322 icmp_seq=2 Reply from 8.8.4.4: TTL=114 time=2.074ms
+17:56:59.020525 icmp_seq=3 Reply from 8.8.4.4: TTL=114 time=2.274ms
+17:56:59.030256 icmp_seq=4 Reply from 8.8.4.4: TTL=114 time=1.984ms
+17:56:59.040452 icmp_seq=5 Reply from 8.8.4.4: TTL=114 time=2.389ms
+17:56:59.050376 icmp_seq=6 Reply from 8.8.4.4: TTL=114 time=2.162ms
+17:56:59.060361 icmp_seq=7 Reply from 8.8.4.4: TTL=114 time=2.243ms
+17:56:59.071345 icmp_seq=8 Reply from 8.8.4.4: TTL=114 time=2.289ms
+17:56:59.080594 icmp_seq=9 Reply from 8.8.4.4: TTL=114 time=114.130ms
+17:56:59.090186 icmp_seq=10 Reply from 8.8.4.4: TTL=114 time=106.499ms
+17:56:59.110209 icmp_seq=12 Reply from 8.8.4.4: TTL=114 time=87.901ms
+17:56:59.100181 icmp_seq=11 Reply from 8.8.4.4: TTL=114 time=98.050ms
+17:56:59.120327 icmp_seq=13 Reply from 8.8.4.4: TTL=114 time=79.219ms
+17:56:59.141054 icmp_seq=15 Reply from 8.8.4.4: TTL=114 time=60.145ms
+17:56:59.130336 icmp_seq=14 Reply from 8.8.4.4: TTL=114 time=71.234ms
+17:56:59.150419 icmp_seq=16 Reply from 8.8.4.4: TTL=114 time=52.030ms
+17:56:59.170772 icmp_seq=18 Reply from 8.8.4.4: TTL=114 time=32.408ms
+17:56:59.201344 icmp_seq=21 Reply from 8.8.4.4: TTL=114 time=0.602ms
+17:56:59.190395 icmp_seq=20 Reply from 8.8.4.4: TTL=114 time=13.592ms
+17:56:59.160257 icmp_seq=17 Reply from 8.8.4.4: TTL=114 time=44.119ms
+17:56:59.180431 icmp_seq=19 Reply from 8.8.4.4: TTL=114 time=24.001ms
+...snip...
+17:56:59.980474 icmp_seq=99 Reply from 8.8.4.4: TTL=114 time=2.481ms
+17:56:59.990458 icmp_seq=100 Reply from 8.8.4.4: TTL=114 time=2.601ms
+^1              ^2                      ^3       ^4      ^5
+1: パケットの送信時刻
+2: icmp_seq は送信したパケットの順番
+3: 応答の送信元
+4: 応答パケットの TTL (送信ではない)
+5: 応答が返ってくるまでの往復時間
+※パケットが帰ってくるまでの時間で順番が入れ替わる事がある
+
+--- ping statistics ---
+100 packets transmitted, 100 received, 0 errors         # 送信したパケット数、受信したパケット数、エラー数
+rtt min/avg/max/stddev = 0.602/9.788/114.130/23.237 ms  # 最小値、平均値、最大値、標準偏差
+10th percentile: 2.052 ms   # 10パーセンタイル
+Q1 (25percent) : 2.144 ms   # 第一四分位数
+Median         : 2.271 ms   # 中央値
+Q3 (75percent) : 2.383 ms   # 第三四分位数
+90th percentile: 24.842 ms  # 90パーセンタイル
+90% trimed avg : 5.384 ms   # 上下 5%を除外した 90% トリム平均
+"""
