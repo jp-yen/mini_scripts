@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import threading
 import ctypes
 import numpy as np
+import colorama
 from colorama import Fore, Back, Style
 
 # グローバル変数
