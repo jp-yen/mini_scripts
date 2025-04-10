@@ -16,3 +16,7 @@
 
 - py-ping<br />
   ping の送信時刻を表示できる python スクリプト (root 権限が必要)
+
+- netrouteview_lng.ini<br />
+  Windows のルーティングを GUI で確認、操作できるアプリケーションの日本語化ファイル
+  https://www.nirsoft.net/utils/network_route_view.html
