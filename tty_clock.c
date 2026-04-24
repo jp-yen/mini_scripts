@@ -13,7 +13,7 @@
 #define SPEACE_Y 1  // 文字の間隔
 #define DATE_LEN 27 // 時刻文字列の長さ
 
-// cc tty_clock.c -s -mtune=native -lncurses -lrt && ./a.out
+// cc tty_clock.c -o tty_clock -s -mtune=native -lncurses -lrt && ./tty_clock
 // 時刻表示
 
 void time_print(char *time_string)
