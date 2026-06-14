@@ -55,6 +55,7 @@ logwrite
 quickvanrecv
 quickvansend
 recvln
+recvfile
 restoresetup
 scprecv
 scpsend
@@ -76,6 +77,8 @@ setecho
 setflowctrl
 setmulticastname
 setrts
+setserialdelaychar
+setserialdelayline
 setspeed
 setsync
 settitle
@@ -94,7 +97,7 @@ xmodemsend
 ymodemrecv
 ymodemsend
 zmodemrecv
-zmodemsend
+zmodemsend 
 
 ; パスワードコマンド
 delpassword
