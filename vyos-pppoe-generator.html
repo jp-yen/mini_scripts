@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VyOS PPPoE Server Configuration Generator</title>
+    <style>
+        :root {
+            /* Colors */
+            --color-primary: #4a90e2;
+            --color-primary-dark: #357abd;
+            --color-success: #27ae60;
+            --color-success-dark: #1e8449;
+            --color-warning: #e67e22;
+            --color-warning-dark: #d35400;
+            --color-secondary: #8e44ad;
+            --color-secondary-dark: #7d3c98;
+            --color-bg-gradient-start: #667eea;
+            --color-bg-gradient-end: #764ba2;
+            --color-header-gradient-start: #4a90e2;
+            --color-header-gradient-end: #357abd;
+            --color-text-dark: #2c3e50;
+            --color-text-muted: #34495e;
+            --color-text-light: #666;
+            --color-text-light-sm: #ecf0f1;
+            --color-bg-light: #f8f9fa;
+            --color-bg-dark: #2c3e50;
+            --color-border: #e1e5e9;
+
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+            --gradient-bg: linear-gradient(135deg, var(--color-bg-gradient-start) 0%, var(--color-bg-gradient-end) 100%);
+            --gradient-warning: linear-gradient(135deg, var(--color-warning) 0%, var(--color-warning-dark) 100%);
+            --gradient-secondary: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
+            --gradient-success: linear-gradient(135deg, var(--color-success) 0%, var(--color-success-dark) 100%);
+
+            /* Spacing */
+            --spacing-xs: 5px;
+            --spacing-sm: 8px;
+            --spacing-md: 12px;
+            --spacing-lg: 15px;
+            --spacing-xl: 20px;
+            --spacing-2xl: 25px;
+            --spacing-3xl: 30px;
+
+            /* Border Radius */
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+
+            /* Fonts */
+            --font-size-sm: 12px;
+            --font-size-base: 14px;
+            --font-size-lg: 16px;
+            --font-size-xl: 1.4em;
+            --font-size-2xl: 2.2em;
+            --font-family-base: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-family-mono: 'Courier New', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family-base);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-3xl);
+            background: var(--gradient-bg);
+            min-height: 100vh;
+            color: var(--color-text-muted);
+        }
+
+        .container {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--gradient-primary);
+            color: white;
+            padding: var(--spacing-3xl);
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: var(--font-size-2xl);
+            font-weight: 300;
+        }
+
+        main {
+            padding: var(--spacing-3xl);
+        }
+
+        .form-section {
+            background: var(--color-bg-light);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-2xl);
+            margin-bottom: var(--spacing-2xl);
+            border-left: 4px solid var(--color-primary);
+
+            & h3 {
+                margin-top: 0;
+                color: var(--color-text-dark);
+                font-size: var(--font-size-xl);
+                margin-bottom: var(--spacing-xl);
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .section-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: calc(var(--spacing-xl) * -0.35);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .section-toolbar .utility-btn {
+            width: auto;
+            margin-top: 0;
+        }
+
+        .form-row {
+            display: flex;
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        label {
+            display: block;
+            margin-bottom: var(--spacing-sm);
+            font-weight: 600;
+            color: var(--color-text-muted);
+        }
+
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: var(--spacing-md);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-base);
+            transition: border-color 0.3s ease;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+
+        input[type="text"]:invalid:not(:placeholder-shown),
+        select:invalid:not([value=""]),
+        [aria-invalid="true"] {
+            border-color: #e74c3c;
+            background-color: #ffe4ea;
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.12);
+
+            &:focus {
+                background-color: #ffd9e2;
+                box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.18);
+            }
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+            margin-right: var(--spacing-sm);
+            cursor: pointer;
+        }
+
+        textarea {
+            resize: vertical;
+            font-family: var(--font-family-mono);
+            min-height: 150px;
+        }
+
+        button {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            font-family: inherit;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #output {
+            background: var(--color-bg-dark);
+            color: var(--color-text-light-sm);
+            padding: var(--spacing-2xl);
+            border-radius: var(--radius-md);
+            font-family: var(--font-family-mono);
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: var(--spacing-2xl);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+            word-break: break-word;
+        }
+
+        .generate-btn {
+            background: var(--gradient-warning);
+            font-size: var(--font-size-lg);
+            padding: 15px var(--spacing-2xl);
+            margin-top: var(--spacing-xl);
+            width: 100%;
+        }
+
+        .copy-btn {
+            background: var(--gradient-secondary);
+            margin-top: var(--spacing-lg);
+            width: 100%;
+        }
+
+        .copy-btn.success {
+            background: var(--gradient-success);
+        }
+
+        .utility-btn {
+            background: var(--gradient-secondary);
+            margin-top: var(--spacing-lg);
+            width: 100%;
+        }
+
+        small {
+            color: var(--color-text-light);
+            font-size: var(--font-size-sm);
+            margin-top: var(--spacing-xs);
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: var(--spacing-lg);
+            }
+
+            main {
+                padding: var(--spacing-lg);
+            }
+
+            .header {
+                padding: var(--spacing-lg);
+            }
+
+            .header h1 {
+                font-size: 1.6em;
+            }
+
+            .form-row {
+                flex-direction: column;
+            }
+
+            .form-group {
+                min-width: 100%;
+            }
+
+
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header" role="banner">
+            <h1>VyOS PPPoE Server Configuration Generator</h1>
+        </header>
+
+        <main>
+            <form id="configForm" novalidate aria-label="VyOS PPPoE Configuration">
+                <div class="section-toolbar" style="gap: var(--spacing-sm);">
+                    <button type="button" class="utility-btn" id="openUsageBtn" aria-haspopup="window"
+                        style="background: var(--gradient-secondary);">説明</button>
+                    <button type="button" class="utility-btn" id="openSubnetCalcBtn"
+                        aria-haspopup="window">サブネット計算</button>
+                </div>
+                <fieldset class="form-section">
+                    <legend>
+                        <h3>⚙️ 初期化設定</h3>
+                    </legend>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="includeInit">
+                                <input type="checkbox" id="includeInit" aria-describedby="includeInitDesc">
+                                初期化設定追加（configure、デフォルト設定読み込み等）
+                            </label>
+                            <small id="includeInitDesc">チェックすると、VyOS のデフォルト設定が読み込まれます。</small>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="form-section">
+                    <legend>
+                        <h3>🌐 上流側設定</h3>
+                    </legend>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="enableUpstream">
+                                <input type="checkbox" id="enableUpstream" aria-describedby="enableUpstreamDesc">
+                                上流側設定を有効にする
+                            </label>
+                            <small id="enableUpstreamDesc">OFF にすると閉域網モードとして、上流側の IF / NAT / デフォルトルートを生成しません。</small>
+                        </div>
+                    </div>
+                    <div id="upstreamConfigFields">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="upstreamInterface">インターフェース:</label>
+                                <input type="text" id="upstreamInterface" required aria-required="true"
+                                    aria-describedby="upstreamInterfaceDesc">
+                                <small id="upstreamInterfaceDesc">例: eth0, eth1</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="addressType">アドレス設定:</label>
+                                <select id="addressType" required aria-required="true">
+                                    <option value="static">固定IPアドレス</option>
+                                    <option value="dhcp">DHCP</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="staticFields">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="upstreamAddress">アドレス (CIDR形式):</label>
+                                    <input type="text" id="upstreamAddress" aria-describedby="upstreamAddressDesc">
+                                    <small id="upstreamAddressDesc">例: 192.168.1.1/24</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="gatewayAddress">ゲートウェイアドレス:</label>
+                                    <input type="text" id="gatewayAddress" aria-describedby="gatewayAddressDesc">
+                                    <small id="gatewayAddressDesc">例: 192.168.1.254</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nameservers">ネームサーバー (２つまで, カンマ区切り):</label>
+                                <input type="text" id="nameservers" required aria-required="true"
+                                    aria-describedby="nameserversDesc">
+                                <small id="nameserversDesc">例: 8.8.8.8, 1.1.1.1</small>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="form-section">
+                    <legend>
+                        <h3>📡 PPPoE側設定</h3>
+                    </legend>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="pppoeInterface">インターフェース:</label>
+                            <input type="text" id="pppoeInterface" required aria-required="true"
+                                aria-describedby="pppoeInterfaceDesc">
+                            <small id="pppoeInterfaceDesc">例: eth1, eth2</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="gatewayIP">ゲートウェイアドレス:</label>
+                            <input type="text" id="gatewayIP" required aria-required="true"
+                                aria-describedby="gatewayIPDesc">
+                            <small id="gatewayIPDesc">例: 100.64.0.0</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="clientIpPoolRange">IPプール範囲:</label>
+                            <input type="text" id="clientIpPoolRange" required aria-required="true"
+                                aria-describedby="clientIpPoolRangeDesc">
+                            <small id="clientIpPoolRangeDesc">例: 169.254.0.0-169.254.0.10</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="serviceName">Service Name: (Option)</label>
+                            <input type="text" id="serviceName" aria-describedby="serviceNameDesc">
+                            <small id="serviceNameDesc">プロバイダやネットワークの識別子</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="accessConcentrator">Access concentrator: (Option)</label>
+                            <input type="text" id="accessConcentrator" aria-describedby="accessConcentratorDesc">
+                            <small id="accessConcentratorDesc">ルータの識別子</small>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="form-section">
+                    <legend>
+                        <h3>👥 ユーザー情報</h3>
+                    </legend>
+                    <div class="form-group">
+                        <label for="usersData">ユーザー情報 (1行1アカウント: ユーザー名,パスワード,固定IPアドレス):</label>
+                        <textarea id="usersData" aria-describedby="usersDataDesc"></textarea>
+                        <small id="usersDataDesc">
+                            ※ 固定IPアドレスは省略可能（空欄の場合はIPプールから自動割り当て）<br>
+                            ※ 固定IPアドレスはルータに割り当てるアドレス（CIDR形式）<br>
+                            ※ CSV形式対応：カンマを含む場合は "ユーザー名","パスワード","IPアドレス" のようにダブルクォートで囲んでください<br>
+                            ※ クォート内でダブルクォートを使う場合は ""（ダブルクォート2つ）でエスケープ
+                            <p> pass,pass は password を "pass,pass" と記入<br>
+                                pass\01 はそのまま記入<br>
+                                pass'02 は 'pass''02' と記入<br>
+                                pass"03 は "pass""03" と記入</p>
+                        </small>
+                    </div>
+                </fieldset>
+
+                <button type="button" class="generate-btn" id="generateBtn"
+                    aria-label="VyOS 設定ファイルを生成">設定ファイル生成</button>
+            </form>
+
+            <div id="output" class="hidden" role="region" aria-live="polite" aria-label="生成された設定"></div>
+            <button type="button" class="copy-btn hidden" id="copyBtn"
+                aria-label="設定をクリップボードにコピー">設定をクリップボードにコピー</button>
+        </main>
+    </div>
+
+    <script>
+        // ============================================================
+        // IPv4 ユーティリティ
+        // ============================================================
+        const IPv4 = {
+            /** IPv4 文字列を 32bit 整数に変換 */
+            toInt(value) {
+                const octets = value.trim().split('.').map(Number);
+                return ((octets[0] << 24) >>> 0) + ((octets[1] << 16) >>> 0)
+                    + ((octets[2] << 8) >>> 0) + (octets[3] >>> 0);
+            },
+
+            /** 32bit 整数を IPv4 文字列に変換 */
+            fromInt(value) {
+                return [
+                    (value >>> 24) & 0xFF, (value >>> 16) & 0xFF,
+                    (value >>> 8) & 0xFF, value & 0xFF,
+                ].join('.');
+            },
+
+            /** IPv4 アドレスの妥当性を判定 */
+            isValid(value) {
+                const octets = value.trim().split('.');
+                if (octets.length !== 4) return false;
+                return octets.every((octet) => {
+                    if (!/^\d+$/.test(octet)) return false;
+                    const n = Number(octet);
+                    return n >= 0 && n <= 255;
+                });
+            },
+
+            /** CIDR 形式 (例: 192.168.1.0/24) の妥当性を判定 */
+            isValidCIDR(value) {
+                const [ip, prefix] = value.trim().split('/');
+                if (!ip || prefix === undefined) return false;
+                if (!IPv4.isValid(ip) || !/^\d+$/.test(prefix)) return false;
+                const n = Number(prefix);
+                return n >= 0 && n <= 32;
+            },
+
+            /** IP プール範囲 (startIP-endIP) の妥当性を判定 */
+            isValidPoolRange(value) {
+                const parts = value.trim().split('-');
+                return parts.length === 2 && IPv4.isValid(parts[0]) && IPv4.isValid(parts[1]);
+            },
+
+            /** IP/CIDR 文字列をパース → { ip, prefix } */
+            parseCIDR(ipCidr) {
+                const parts = ipCidr.split('/');
+                return parts.length === 2
+                    ? { ip: parts[0], prefix: parseInt(parts[1], 10) }
+                    : { ip: ipCidr, prefix: 32 };
+            },
+
+            /** プレフィックス長 → ネットマスク文字列 */
+            prefixToNetmask(prefix) {
+                const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0;
+                return IPv4.fromInt(mask);
+            },
+
+            /** ネットマスク → プレフィックス長（不正な場合 -1） */
+            netmaskToPrefix(netmask) {
+                if (!IPv4.isValid(netmask)) return -1;
+                const maskInt = IPv4.toInt(netmask);
+                let seenZero = false;
+                let prefix = 0;
+                for (let bit = 31; bit >= 0; bit--) {
+                    if (((maskInt >>> bit) & 1) === 1) {
+                        if (seenZero) return -1;
+                        prefix++;
+                    } else {
+                        seenZero = true;
+                    }
+                }
+                return prefix;
+            },
+
+            /** ネットワークアドレスを計算 */
+            networkAddress(ip, prefix) {
+                const mask = (0xFFFFFFFF << (32 - prefix)) >>> 0;
+                return IPv4.fromInt((IPv4.toInt(ip) & mask) >>> 0);
+            },
+        };
+
+        // ============================================================
+        // テキスト処理ユーティリティ
+        // ============================================================
+
+        /**
+         * CSV 形式の行をパースして配列に変換
+         * シングルクォート・ダブルクォート両対応、エスケープ対応
+         */
+        const parseCSVLine = (line) => {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            let quoteChar = '';
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                const nextChar = line[i + 1];
+
+                if (!inQuotes) {
+                    if (char === '"' || char === "'") {
+                        inQuotes = true;
+                        quoteChar = char;
+                    } else if (char === ',') {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                } else if (char === quoteChar) {
+                    if (nextChar === quoteChar) {
+                        current += char;
+                        i++;
+                    } else {
+                        inQuotes = false;
+                        quoteChar = '';
+                    }
+                } else {
+                    current += char;
+                }
+            }
+
+            result.push(current.trim());
+            return result;
+        };
+
+        /** VyOS CLI 用に文字列を安全にシングルクォート */
+        const quoteVyosString = (value) => `'${String(value).replace(/'/g, "'\\\\''")}' `;
+
+        /** HTML 特殊文字をエスケープ */
+        const escapeHtml = (str) => String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+
+        // ============================================================
+        // DOM 要素キャッシュ
+        // ============================================================
+        const DOM = {
+            /** @type {Record<string, HTMLElement>} */
+            _cache: {},
+
+            /** DOMContentLoaded 後に主要要素をキャッシュ */
+            init() {
+                const ids = [
+                    'configForm', 'output', 'copyBtn', 'generateBtn',
+                    'includeInit', 'enableUpstream', 'upstreamInterface',
+                    'addressType', 'upstreamAddress', 'gatewayAddress',
+                    'nameservers', 'pppoeInterface', 'gatewayIP',
+                    'clientIpPoolRange', 'accessConcentrator', 'serviceName',
+                    'usersData', 'upstreamConfigFields', 'staticFields',
+                    'openSubnetCalcBtn', 'openUsageBtn',
+                ];
+                for (const id of ids) {
+                    this._cache[id] = document.getElementById(id);
+                }
+            },
+
+            /** キャッシュから要素を取得（未キャッシュ時はフォールバック） */
+            get(id) {
+                return this._cache[id] || document.getElementById(id);
+            },
+        };
+
+        // ============================================================
+        // フォーム管理
+        // ============================================================
+        const Form = {
+            DEFAULTS: {
+                includeInit: true,
+                enableUpstream: true,
+                upstreamInterface: 'eth0',
+                addressType: 'static',
+                upstreamAddress: '172.31.220.255/23',
+                gatewayAddress: '172.31.220.1',
+                nameservers: '172.31.100.21, 172.31.100.100, 172.31.100.20',
+                pppoeInterface: 'eth1',
+                gatewayIP: '100.127.255.255',
+                clientIpPoolRange: '169.254.0.0-169.254.0.10',
+                accessConcentrator: 'AC',
+                serviceName: 'SVC',
+                usersData: "user01, pass01, 160.0.0.1\nuser02, pass02, 192.168.250.8/28\nuser03, pass03, 210.67.9.54/29",
+            },
+
+            /** デフォルト値をフォームに適用 */
+            applyDefaults() {
+                for (const [id, value] of Object.entries(Form.DEFAULTS)) {
+                    const el = DOM.get(id);
+                    if (!el) continue;
+                    if (el.type === 'checkbox') el.checked = value;
+                    else el.value = value;
+                }
+            },
+
+            /** フォーム入力値を一括取得 */
+            getValues() {
+                const text = (id) => DOM.get(id).value.trim();
+                return {
+                    includeInit: DOM.get('includeInit').checked,
+                    upstreamEnabled: DOM.get('enableUpstream').checked,
+                    upstreamInterface: text('upstreamInterface'),
+                    addressType: DOM.get('addressType').value,
+                    upstreamAddress: text('upstreamAddress'),
+                    gatewayAddress: text('gatewayAddress'),
+                    nameserversRaw: text('nameservers'),
+                    pppoeInterface: text('pppoeInterface'),
+                    gatewayIP: text('gatewayIP'),
+                    clientIpPoolRange: text('clientIpPoolRange'),
+                    accessConcentrator: text('accessConcentrator'),
+                    serviceName: text('serviceName'),
+                    usersData: text('usersData'),
+                };
+            },
+        };
+
+        // ============================================================
+        // バリデーション
+        // ============================================================
+        const Validation = {
+            /** 入力要素のバリデーション状態を更新 */
+            setFieldValidity(element, isValid, message = '') {
+                element.setCustomValidity(isValid ? '' : message);
+                element.setAttribute('aria-invalid', String(!isValid));
+            },
+
+            /** 上流設定の IP 系フィールドを一括検証 */
+            validateNetworkFields() {
+                const upstreamEnabled = DOM.get('enableUpstream').checked;
+                const addressType = DOM.get('addressType').value;
+                const upstreamAddr = DOM.get('upstreamAddress');
+                const gatewayAddr = DOM.get('gatewayAddress');
+                const gatewayIP = DOM.get('gatewayIP');
+                const nameservers = DOM.get('nameservers');
+                const poolRange = DOM.get('clientIpPoolRange');
+
+                if (upstreamEnabled) {
+                    if (addressType === 'static') {
+                        Validation.setFieldValidity(upstreamAddr, IPv4.isValidCIDR(upstreamAddr.value),
+                            'CIDR形式の正しいIPアドレスを入力してください。');
+                        Validation.setFieldValidity(gatewayAddr, IPv4.isValid(gatewayAddr.value),
+                            '正しい IPv4 アドレスを入力してください。');
+                    } else {
+                        Validation.setFieldValidity(upstreamAddr, true);
+                        Validation.setFieldValidity(gatewayAddr, true);
+                    }
+
+                    const nsList = nameservers.value.split(',').map((s) => s.trim()).filter(Boolean);
+                    Validation.setFieldValidity(nameservers,
+                        nsList.length > 0 && nsList.every((s) => IPv4.isValid(s)),
+                        'カンマ区切りの IPv4 アドレスを 1 つ以上入力してください。');
+                } else {
+                    Validation.setFieldValidity(upstreamAddr, true);
+                    Validation.setFieldValidity(gatewayAddr, true);
+                    Validation.setFieldValidity(nameservers, true);
+                }
+
+                Validation.setFieldValidity(gatewayIP, IPv4.isValid(gatewayIP.value),
+                    '正しい IPv4 アドレスを入力してください。');
+                Validation.setFieldValidity(poolRange, IPv4.isValidPoolRange(poolRange.value),
+                    '開始IP-終了IP の形式で入力してください。');
+            },
+        };
+
+        // ============================================================
+        // 上流側フィールド表示切替
+        // ============================================================
+
+        /** 上流側設定の有効/無効およびアドレスタイプに応じたフィールド制御 */
+        const toggleUpstreamFields = () => {
+            const upstreamEnabled = DOM.get('enableUpstream').checked;
+            const addressType = DOM.get('addressType').value;
+            const configFields = DOM.get('upstreamConfigFields');
+            const staticFields = DOM.get('staticFields');
+            const isStatic = upstreamEnabled && addressType === 'static';
+
+            // 上流セクション全体の表示/無効化
+            configFields.classList.toggle('hidden', !upstreamEnabled);
+            configFields.querySelectorAll('input, select').forEach((field) => {
+                field.disabled = !upstreamEnabled;
+                if (!upstreamEnabled) field.required = false;
+            });
+
+            if (!upstreamEnabled) return;
+
+            // 上流有効時の必須設定
+            DOM.get('upstreamInterface').required = true;
+            DOM.get('addressType').required = true;
+            DOM.get('nameservers').required = true;
+
+            // 静的/DHCP に応じた固定 IP フィールド制御
+            staticFields.classList.toggle('hidden', !isStatic);
+            DOM.get('upstreamAddress').disabled = !isStatic;
+            DOM.get('gatewayAddress').disabled = !isStatic;
+            DOM.get('upstreamAddress').required = isStatic;
+            DOM.get('gatewayAddress').required = isStatic;
+        };
+
+        // ============================================================
+        // サブネット計算
+        // ============================================================
+        const SubnetCalculator = {
+            defaultInput: { value: '192.168.1.10/24' },
+
+            /** @type {Window|null} */
+            _window: null,
+
+            /** サブネット入力文字列をパース → { ip, prefix, format } | null */
+            parseInput(inputValue) {
+                const raw = inputValue.trim();
+
+                if (raw.includes('/')) {
+                    const [ip, prefixText] = raw.split('/').map((part) => part.trim());
+                    const prefix = Number(prefixText);
+                    if (!IPv4.isValid(ip) || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+                        return null;
+                    }
+                    return { ip, prefix, format: 'cidr' };
+                }
+
+                const parts = raw.split(/\s+/).filter(Boolean);
+                if (parts.length !== 2 || !IPv4.isValid(parts[0])) return null;
+
+                const prefix = IPv4.netmaskToPrefix(parts[1]);
+                return prefix < 0 ? null : { ip: parts[0], prefix, format: 'mask' };
+            },
+
+            /** ネットワーク整数とプレフィックスからサブネット範囲を計算 */
+            getRange(networkInt, prefix) {
+                const broadcastInt = networkInt + (prefix === 32 ? 0 : (2 ** (32 - prefix) - 1));
+                const startInt = prefix >= 31 ? networkInt : networkInt + 1;
+                const endInt = prefix >= 31 ? broadcastInt : broadcastInt - 1;
+
+                return {
+                    networkAddress: IPv4.fromInt(networkInt),
+                    broadcastAddress: IPv4.fromInt(broadcastInt),
+                    startAddress: IPv4.fromInt(startInt),
+                    endAddress: IPv4.fromInt(endInt),
+                };
+            },
+
+            /** サブネット計算結果を返す（入力不正時は null） */
+            calculate(inputValue) {
+                const parsed = SubnetCalculator.parseInput(inputValue);
+                if (!parsed) return null;
+
+                const ipInt = IPv4.toInt(parsed.ip);
+                const maskInt = parsed.prefix === 0 ? 0 : (0xFFFFFFFF << (32 - parsed.prefix)) >>> 0;
+                const networkInt = ipInt & maskInt;
+                const range = SubnetCalculator.getRange(networkInt, parsed.prefix);
+
+                const totalIps = 2 ** (32 - parsed.prefix);
+                const usableIps = parsed.prefix >= 31 ? totalIps : totalIps - 2;
+
+                // 反転ネットマスク (ワイルドカードマスク) の計算
+                const wildcardInt = (~maskInt) >>> 0;
+                const wildcardMask = IPv4.fromInt(wildcardInt);
+
+                return {
+                    ...range,
+                    cidr: `${range.networkAddress}/${parsed.prefix}`,
+                    netmask: IPv4.prefixToNetmask(parsed.prefix),
+                    wildcardMask: wildcardMask,
+                    totalIps: `${totalIps.toLocaleString()} (利用可能: ${usableIps.toLocaleString()})`,
+                };
+            },
+
+            /** 計算結果を DOM 要素群に反映 */
+            render(elements, result) {
+                for (const key of ['networkAddress', 'netmask', 'wildcardMask', 'cidr', 'startAddress', 'endAddress', 'broadcastAddress', 'totalIps']) {
+                    elements[key].textContent = result[key];
+                }
+                elements.results.classList.remove('hidden');
+            },
+
+            /** 入力変更時に計算・表示を同期 */
+            sync(elements) {
+                if (!elements.input || !elements.results) return;
+
+                const result = SubnetCalculator.calculate(elements.input.value);
+                if (!result) {
+                    elements.input.setAttribute('aria-invalid', 'true');
+                    elements.input.classList.add('subnet-invalid');
+                    return;
+                }
+
+                elements.input.removeAttribute('aria-invalid');
+                elements.input.classList.remove('subnet-invalid');
+                SubnetCalculator.render(elements, result);
+            },
+
+            /** ポップアップウィンドウの document から要素群を取得 */
+            getElements(rootDocument) {
+                return {
+                    input: rootDocument.getElementById('subnetInput'),
+                    results: rootDocument.getElementById('subnetResults'),
+                    networkAddress: rootDocument.getElementById('subnetNetworkAddress'),
+                    netmask: rootDocument.getElementById('subnetNetmask'),
+                    wildcardMask: rootDocument.getElementById('subnetWildcardMask'),
+                    cidr: rootDocument.getElementById('subnetCidr'),
+                    startAddress: rootDocument.getElementById('subnetStartAddress'),
+                    endAddress: rootDocument.getElementById('subnetEndAddress'),
+                    broadcastAddress: rootDocument.getElementById('subnetBroadcastAddress'),
+                    totalIps: rootDocument.getElementById('subnetTotalIps'),
+                };
+            },
+
+            /** ポップアップウィンドウをコンテンツに合わせてリサイズ */
+            autoResize(popupWindow) {
+                if (!popupWindow || popupWindow.closed) return;
+
+                const resize = () => {
+                    if (popupWindow.closed) return;
+                    const docEl = popupWindow.document?.documentElement;
+                    if (!docEl) return;
+
+                    const chromeW = Math.max(0, popupWindow.outerWidth - popupWindow.innerWidth);
+                    const chromeH = Math.max(0, popupWindow.outerHeight - popupWindow.innerHeight);
+                    popupWindow.resizeTo(
+                        Math.max(450, Math.min(900, docEl.scrollWidth + chromeW + 8)),
+                        Math.max(430, Math.min(900, docEl.scrollHeight + chromeH + 4)),
+                    );
+                };
+
+                setTimeout(resize, 0);
+                setTimeout(resize, 120);
+            },
+
+            /** ポップアップウィンドウのイベント登録と初期表示 */
+            initialize(popupWindow, initialValue) {
+                const elements = SubnetCalculator.getElements(popupWindow.document);
+                if (!elements.input || !elements.results) return;
+
+                elements.input.value = initialValue;
+                elements.input.addEventListener('input', () => SubnetCalculator.sync(elements));
+
+                popupWindow.addEventListener('beforeunload', () => {
+                    if (SubnetCalculator._window === popupWindow) {
+                        SubnetCalculator._window = null;
+                    }
+                });
+
+                SubnetCalculator.sync(elements);
+            },
+
+            /** サブネット計算ウィンドウを開く */
+            open() {
+                const initialValue = SubnetCalculator.defaultInput.value;
+                const html = SubnetCalculator.buildWindowHtml(initialValue);
+
+                SubnetCalculator._window = window.open(
+                    '', 'SubnetCalculatorWindow',
+                    'width=450,height=430,resizable=yes,scrollbars=yes',
+                );
+
+                if (!SubnetCalculator._window) {
+                    alert('別ウィンドウを開けませんでした。ブラウザのポップアップブロック設定を確認してください。');
+                    return;
+                }
+
+                SubnetCalculator._window.document.open();
+                SubnetCalculator._window.document.write(html);
+                SubnetCalculator._window.document.close();
+                SubnetCalculator.initialize(SubnetCalculator._window, initialValue);
+                SubnetCalculator.autoResize(SubnetCalculator._window);
+                SubnetCalculator._window.focus();
+            },
+
+            /** サブネット計算ウィンドウの HTML を生成 */
+            buildWindowHtml(initialValue) {
+                return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>サブネット計算ウィンドウ</title>
+    <style>
+        :root {
+            --color-primary: #4a90e2;
+            --color-secondary: #8e44ad;
+            --color-secondary-dark: #7d3c98;
+            --color-text-dark: #2c3e50;
+            --color-text-light: #666;
+            --color-bg-light: #f8f9fa;
+            --color-border: #e1e5e9;
+            --font-family-base: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-family-mono: 'Courier New', monospace;
+            --spacing-xs: 5px;
+            --spacing-sm: 8px;
+            --spacing-md: 12px;
+            --spacing-lg: 15px;
+            --spacing-xl: 20px;
+            --spacing-2xl: 25px;
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 10px;
+            font-family: var(--font-family-base);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: var(--color-text-dark);
+        }
+
+        .window-shell {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        .window-header {
+            padding: 8px 12px 6px;
+            background: linear-gradient(135deg, rgba(74, 144, 226, 0.12), rgba(142, 68, 173, 0.12));
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .window-header h1 {
+            margin: 0;
+            font-size: 1.05rem;
+        }
+
+        .window-header p {
+            margin: 4px 0 0;
+            color: var(--color-text-light);
+            font-size: 0.8rem;
+        }
+
+        .window-body {
+            padding: 8px 10px 10px;
+        }
+
+        .input-row {
+            display: flex;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        small {
+            display: block;
+            margin-top: 3px;
+            font-size: 11px;
+            color: var(--color-text-light);
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.12);
+        }
+
+        input[aria-invalid="true"] {
+            border-color: #e74c3c;
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.12);
+        }
+
+        input.subnet-invalid {
+            border-color: #e74c3c;
+            background-color: #ffe4ea;
+        }
+
+        input.subnet-invalid:focus {
+            border-color: #e74c3c;
+            background-color: #ffd9e2;
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.18);
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(200px, max-content));
+            justify-content: start;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .result-card {
+            background: var(--color-bg-light);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 8px 10px;
+            min-width: 200px;
+        }
+
+        .result-label {
+            display: block;
+            margin-bottom: 3px;
+            font-size: 11px;
+            color: var(--color-text-light);
+            font-weight: 600;
+        }
+
+        .result-value {
+            font-family: var(--font-family-mono);
+            font-size: 12px;
+            line-height: 1.25;
+            word-break: normal;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 220px) {
+            body { padding: 8px; }
+            .results { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="window-shell">
+        <div class="window-header">
+            <h1>サブネット計算ウィンドウ</h1>
+        </div>
+        <div class="window-body">
+            <div class="input-row">
+                <div class="form-group">
+                    <label for="subnetInput">アドレス</label>
+                    <input type="text" id="subnetInput" value="${escapeHtml(initialValue)}" placeholder="192.168.1.10/24 または 192.168.1.10 255.255.255.0" aria-describedby="subnetHelp">
+                    <small id="subnetHelp">例: 192.168.1.10/24、192.168.1.10 255.255.255.0</small>
+                </div>
+            </div>
+            <div class="results hidden" id="subnetResults" aria-live="polite">
+                <div class="result-card"><span class="result-label">ネットワークアドレス</span><div class="result-value" id="subnetNetworkAddress">-</div></div>
+                <div class="result-card"><span class="result-label">ブロードキャスト</span><div class="result-value" id="subnetBroadcastAddress">-</div></div>
+                <div class="result-card"><span class="result-label">開始アドレス</span><div class="result-value" id="subnetStartAddress">-</div></div>
+                <div class="result-card"><span class="result-label">終了アドレス</span><div class="result-value" id="subnetEndAddress">-</div></div>
+                <div class="result-card"><span class="result-label">CIDR</span><div class="result-value" id="subnetCidr">-</div></div>
+                <div class="result-card"><span class="result-label">IPアドレス数</span><div class="result-value" id="subnetTotalIps">-</div></div>
+                <div class="result-card"><span class="result-label">ネットマスク</span><div class="result-value" id="subnetNetmask">-</div></div>
+                <div class="result-card"><span class="result-label">ワイルドカードマスク</span><div class="result-value" id="subnetWildcardMask">-</div></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
+            },
+        };
+
+        // ============================================================
+        // 使い方説明書
+        // ============================================================
+        const UsageGuide = {
+            /** @type {Window|null} */
+            _window: null,
+
+            /** 使い方説明ウィンドウを開く */
+            open() {
+                const html = UsageGuide.buildWindowHtml();
+
+                UsageGuide._window = window.open(
+                    '', 'UsageGuideWindow',
+                    'width=800,height=600,resizable=yes,scrollbars=yes',
+                );
+
+                if (!UsageGuide._window) {
+                    alert('別ウィンドウを開けませんでした。ブラウザのポップアップブロック設定を確認してください。');
+                    return;
+                }
+
+                UsageGuide._window.document.open();
+                UsageGuide._window.document.write(html);
+                UsageGuide._window.document.close();
+                UsageGuide._window.focus();
+            },
+
+            /** 使い方説明ウィンドウの HTML を生成 */
+            buildWindowHtml() {
+                return `<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VyOS PPPoE Server Configuration Generator — 使い方</title>
+    <style>
+        :root {
+            /* Colors matching the main generator app */
+            --color-primary: #4a90e2;
+            --color-primary-dark: #357abd;
+            --color-success: #27ae60;
+            --color-success-dark: #1e8449;
+            --color-warning: #e67e22;
+            --color-warning-dark: #d35400;
+            --color-secondary: #8e44ad;
+            --color-secondary-dark: #7d3c98;
+            --color-bg-gradient-start: #667eea;
+            --color-bg-gradient-end: #764ba2;
+            --color-header-gradient-start: #4a90e2;
+            --color-header-gradient-end: #357abd;
+            --color-text-dark: #2c3e50;
+            --color-text-muted: #34495e;
+            --color-text-light: #666;
+            --color-text-light-sm: #ecf0f1;
+            --color-bg-light: #f8f9fa;
+            --color-bg-dark: #2c3e50;
+            --color-border: #e1e5e9;
+
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+            --gradient-bg: linear-gradient(135deg, var(--color-bg-gradient-start) 0%, var(--color-bg-gradient-end) 100%);
+            --gradient-warning: linear-gradient(135deg, var(--color-warning) 0%, var(--color-warning-dark) 100%);
+            --gradient-secondary: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
+            --gradient-success: linear-gradient(135deg, var(--color-success) 0%, var(--color-success-dark) 100%);
+
+            /* Spacing */
+            --spacing-xs: 5px;
+            --spacing-sm: 8px;
+            --spacing-md: 12px;
+            --spacing-lg: 15px;
+            --spacing-xl: 20px;
+            --spacing-2xl: 25px;
+            --spacing-3xl: 30px;
+
+            /* Border Radius */
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+
+            /* Fonts */
+            --font-size-sm: 13px;
+            --font-size-base: 15px;
+            --font-size-lg: 18px;
+            --font-size-xl: 1.4em;
+            --font-size-2xl: 2.2em;
+            --font-family-base: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-family-mono: 'Courier New', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family-base);
+            max-width: 900px;
+            margin: 0 auto;
+            padding: var(--spacing-3xl);
+            background: var(--gradient-bg);
+            min-height: 100vh;
+            color: var(--color-text-muted);
+            line-height: 1.7;
+        }
+
+        .container {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--gradient-primary);
+            color: white;
+            padding: var(--spacing-3xl);
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 450;
+            letter-spacing: 0.5px;
+        }
+
+        .header p {
+            margin: var(--spacing-sm) 0 0 0;
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        main {
+            padding: var(--spacing-3xl);
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            color: var(--color-text-dark);
+            border-bottom: 2px solid var(--color-primary);
+            padding-bottom: var(--spacing-xs);
+            margin-top: var(--spacing-2xl);
+            margin-bottom: var(--spacing-lg);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h3 {
+            font-size: 1.15rem;
+            color: var(--color-text-dark);
+            margin-top: var(--spacing-xl);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        p {
+            margin-top: 0;
+            margin-bottom: var(--spacing-md);
+        }
+
+        /* Lists */
+        ul,
+        ol {
+            margin-top: 0;
+            margin-bottom: var(--spacing-md);
+            padding-left: var(--spacing-2xl);
+        }
+
+        li {
+            margin-bottom: var(--spacing-xs);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: var(--spacing-2xl);
+            font-size: var(--font-size-sm);
+        }
+
+        th,
+        td {
+            padding: var(--spacing-md);
+            border: 1px solid var(--color-border);
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--color-bg-light);
+            font-weight: 600;
+            color: var(--color-text-dark);
+        }
+
+        th:first-child {
+            width: 10em;
+        }
+
+        tr:nth-child(even) td {
+            background-color: rgba(248, 249, 250, 0.5);
+        }
+
+        /* Code Block */
+        pre {
+            background-color: var(--color-bg-dark);
+            color: var(--color-text-light-sm);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-family-mono);
+            font-size: 13.5px;
+            overflow-x: auto;
+            margin-top: 0;
+            margin-bottom: var(--spacing-md);
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+            line-height: 1.5;
+        }
+
+        code {
+            font-family: var(--font-family-mono);
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: var(--color-secondary-dark);
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: inherit;
+            font-size: inherit;
+        }
+
+        /* Callouts */
+        .callout {
+            border-left: 4px solid;
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-md) var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+            background-color: var(--color-bg-light);
+        }
+
+        .callout-tip {
+            border-left-color: var(--color-success);
+            background-color: rgba(39, 174, 96, 0.06);
+        }
+
+        .callout-note {
+            border-left-color: var(--color-primary);
+            background-color: rgba(74, 144, 226, 0.06);
+        }
+
+        .callout-title {
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .callout-tip .callout-title {
+            color: var(--color-success-dark);
+        }
+
+        .callout-note .callout-title {
+            color: var(--color-primary-dark);
+        }
+
+        .callout p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Visual Steps */
+        .step-section {
+            background-color: var(--color-bg-light);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            border-left: 4px solid var(--color-primary);
+        }
+
+        .step-section h3 {
+            margin-top: 0;
+            color: var(--color-text-dark);
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: var(--spacing-xs);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .footer {
+            text-align: center;
+            padding: var(--spacing-2xl);
+            color: var(--color-text-light-sm);
+            font-size: var(--font-size-sm);
+        }
+
+        .footer a {
+            color: white;
+            text-decoration: underline;
+            transition: opacity 0.2s;
+        }
+
+        .footer a:hover {
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: var(--spacing-md);
+            }
+
+            main {
+                padding: var(--spacing-lg);
+            }
+
+            .header {
+                padding: var(--spacing-xl);
+            }
+
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            th,
+            td {
+                padding: var(--spacing-sm);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>VyOS PPPoE Server Configuration Generator</h1>
+            <p>使い方ガイド</p>
+        </header>
+
+        <main>
+            <p>VyOS 用の PPPoE サーバの設定をフォームから生成します。</p>
+
+            <h2>📋 画面構成</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>セクション</th>
+                        <th>説明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>⚙️ 初期化設定</td>
+                        <td>VyOS のデフォルト設定読み込みや、タイムゾーン、SSH、NTP 等の基礎設定を含めるかどうかを指定します。</td>
+                    </tr>
+                    <tr>
+                        <td>🌐 上流側設定</td>
+                        <td>インターネット側（WAN）となる外部インターフェースの接続方法（固定IPまたはDHCP）、NAT、デフォルトルート、DNSを設定します。</td>
+                    </tr>
+                    <tr>
+                        <td>📡 PPPoE 側設定</td>
+                        <td>PPPoE サーバとして待ち受けるポート（LAN）や、クライアントに割り当てるIPプール、MTUなどのPPPオプションを設定します。</td>
+                    </tr>
+                    <tr>
+                        <td>👥 ユーザー情報</td>
+                        <td>PPPoE アカウントとアドレスを CSV 形式で定義します。</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>🚀 基本的な使い方</h2>
+
+            <div class="step-section">
+                <h3>1. 初期化設定</h3>
+                <p><strong>チェック ON（推奨）:</strong> VyOS
+                    のシステム設定（タイムゾーンを東京に設定、SSH/NTP/LLDP の有効化など）が生成コードに追加されます。</p>
+                <div class="callout callout-note">
+                    <div class="callout-title">💡 補足</div>
+                    <p>不要な設定項目は削除・編集して下さい。</p>
+                </div>
+                <p><strong>チェック OFF:</strong> PPPoE サーバ構築に関連する最小限の設定コマンドのみを生成します。既に稼働している VyOS に対して追加で流し込みたい場合に適しています。
+                </p>
+            </div>
+
+            <div class="step-section">
+                <h3>2. 上流側設定</h3>
+                <p><strong>「上流側設定を有効にする」チェック ON:</strong> 外部インターネットとの接続に必要な WAN 側設定（固定IPアドレスまたはDHCP）、NAT マスカレード、およびデフォルトルート設定を自動生成します。</p>
+                <p><strong>チェック OFF（閉域網モード）:</strong> WAN 側の設定、NAT、デフォルトルートコマンドを生成しません。インターネット接続を持たないローカルな実験環境や、VPN
+                    閉域網環境を作成する際に使用します。</p>
+
+                <div class="callout callout-tip">
+                    <div class="callout-title">💡 ネームサーバーの指定</div>
+                    <p>指定したアドレスのうち、先頭の2つまでが PPPoE クライアント接続時に自動配布されます。</p>
+                </div>
+            </div>
+
+            <div class="step-section">
+                <h3>3. PPPoE 側設定</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>設定項目</th>
+                            <th>入力例</th>
+                            <th>備考</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>インターフェース</td>
+                            <td><code>eth1</code></td>
+                            <td>PPPoE クライアント（ルータやPC）を収容・接続するポートを指定します。</td>
+                        </tr>
+                        <tr>
+                            <td>ゲートウェイアドレス</td>
+                            <td><code>100.127.255.255</code></td>
+                            <td>PPPoE トンネルのサーバ側（VyOS自身）に割り当てられる IP アドレスを指定します。</td>
+                        </tr>
+                        <tr>
+                            <td>IP プール範囲</td>
+                            <td><code>169.254.0.0-169.254.0.10</code></td>
+                            <td>接続してきたクライアントに対して、動的に割り当てる IP アドレスの範囲を指定します。</td>
+                        </tr>
+                        <tr>
+                            <td>Service Name</td>
+                            <td><code>SVC</code> （任意）</td>
+                            <td>PPPoE サーバが発信するサービス名タグ（プロバイダー名など）を指定します。</td>
+                        </tr>
+                        <tr>
+                            <td>Access Concentrator</td>
+                            <td><code>AC</code> （任意）</td>
+                            <td>PPPoE の AC 名タグ（ルータを識別する固有の名前）を指定します。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="step-section">
+                <h3>4. ユーザー情報</h3>
+                <p>テキストエリアに <strong>CSV 形式で 1 行につき 1 アカウント</strong> を入力してください。</p>
+
+                <h4>書式:</h4>
+                <pre>ユーザー名, パスワード, 固定IPアドレス (省略可能)</pre>
+
+                <h4>入力例:</h4>
+                <pre>user01, pass01, 160.0.0.1
+user02, pass02, 192.168.250.8/28
+user03, pass03</pre>
+
+                <ul>
+                    <li>3列目のように固定IPアドレスを省略した場合は、<strong>「IP プール範囲」</strong>から自動的にアドレスが割り当てられます。</li>
+                    <li>固定IPに CIDR を指定した場合（例: <code>192.168.250.8/28</code>）、接続クライアント宛のスタティックルート設定も VyOS 側に自動生成されます。</li>
+                    <li>パスワード等にカンマを含む場合は、<code>"pass,word"</code> のようにダブルクォーテーションで囲んでください。</li>
+                </ul>
+            </div>
+
+            <div class="step-section">
+                <h3>5. 設定の生成 & コピー</h3>
+                <ol>
+                    <li>すべての入力欄を確認後、一番下の <strong>「設定ファイル生成」</strong> ボタンをクリックします。</li>
+                    <li>画面下部に、VyOS 用の Config が濃紺のコードエリアに出力されます。</li>
+                    <li><strong>「設定をクリップボードにコピー」</strong> ボタンを押してコピーし、VyOS のコンソール上で <code>configure</code>
+                        モードで貼り付けて実行してください。</li>
+                </ol>
+            </div>
+
+            <h2>🔍 サブネット計算ウィンドウ</h2>
+            <p>画面右上の <strong>「サブネット計算」</strong> ボタンを押すと、別ウィンドウでサブネット計算ツールが立ち上がります。</p>
+            <p>アドレスを入力すると以下が表示されます。</p>
+
+            <ul>
+                <li>ネットワークアドレス ／ ブロードキャストアドレス</li>
+                <li>利用可能な IP 範囲（開始〜終了）</li>
+                <li>CIDR ／ IP アドレス数</li>
+                <li>ネットマスク ／ ワイルドカードマスク</li>
+            </ul>
+
+            <div class="callout callout-note">
+                <div class="callout-title">💡 活用方法</div>
+                <p>IP プール範囲や割り当てるサブネット、ファイアウォールや ACL で使用する「ワイルドカードマスク」の確認・計算ツールとしてご活用ください。</p>
+            </div>
+        </main>
+    </div>
+    <div class="footer">
+        <p><a href="#" onclick="window.close(); return false;" style="color: white; text-decoration: underline;">この説明ウィンドウを閉じる</a></p>
+    </div>
+</body>
+
+</html>`;
+            }
+        };
+
+        // ============================================================
+        // VyOS 設定ファイル生成
+        // ============================================================
+        const ConfigBuilder = {
+            /** 初期化セクションの設定行を生成 */
+            buildInitSection(includeInit) {
+                if (!includeInit) return '';
+
+                return [
+                    'load /opt/vyatta/etc/config.boot.default',
+                    'commit',
+                    'delete interfaces ethernet',
+                    'delete service ntp',
+                    '# delete system console device ttyS0',
+                    "set system domain-name 'my.home'",
+                    "set system time-zone 'Asia/Tokyo'",
+                    'set system ipv6 disable-forwarding',
+                    'set system option kernel disable-mitigations',
+                    'set system option performance virtual-guest',
+                    'set service lldp interface all',
+                    'set service lldp legacy-protocols cdp',
+                    'set service ntp server 172.31.100.20',
+                    'set service ntp server 172.31.100.21',
+                    'set service ntp server 172.31.100.100',
+                    'set service ssh',
+                    '',
+                ].join('\n') + '\n';
+            },
+
+            /**
+             * 上流側設定セクションの設定行を生成
+             * @returns {{ lines: string, nameservers: string[] } | null} バリデーション失敗時は null
+             */
+            buildUpstreamSection(form) {
+                const lines = [];
+
+                if (form.upstreamEnabled) {
+                    lines.push('# 上流側設定');
+                    if (form.addressType === 'static') {
+                        lines.push(`set interfaces ethernet ${form.upstreamInterface} address '${form.upstreamAddress}'`);
+                        lines.push(`set protocols static route 0.0.0.0/0 next-hop ${form.gatewayAddress}`);
+                    } else {
+                        lines.push(`set interfaces ethernet ${form.upstreamInterface} address dhcp`);
+                    }
+                    lines.push(`set interfaces ethernet ${form.upstreamInterface} description 'Outside'`);
+                    lines.push(`set nat source rule 100 outbound-interface name ${form.upstreamInterface}`);
+                    lines.push('set nat source rule 100 translation address masquerade');
+                } else {
+                    lines.push('# 上流側設定は無効（閉域網モード）');
+                }
+
+                const nameservers = form.upstreamEnabled
+                    ? form.nameserversRaw.split(',').map((ns) => ns.trim()).filter(Boolean)
+                    : [];
+
+                if (form.upstreamEnabled && nameservers.length === 0) {
+                    alert('ネームサーバーを少なくとも1つ指定してください。');
+                    return null;
+                }
+
+                for (const ns of nameservers) {
+                    lines.push(`set system name-server ${ns}`);
+                }
+
+                return { lines: lines.join('\n') + '\n', nameservers };
+            },
+
+            /** PPPoE 側設定セクションの設定行を生成 */
+            buildPppoeSection(form, nameservers) {
+                const lines = [
+                    '',
+                    '# PPPoE側設定',
+                    `set interfaces ethernet ${form.pppoeInterface} description 'PPPoE-Server'`,
+                    `set service pppoe-server interface ${form.pppoeInterface}`,
+                ];
+
+                if (form.accessConcentrator) {
+                    lines.push(`set service pppoe-server access-concentrator '${form.accessConcentrator}'`);
+                }
+
+                if (form.serviceName) {
+                    lines.push(`set service pppoe-server service-name '${form.serviceName}'`);
+                }
+
+                lines.push(
+                    "set service pppoe-server authentication mode 'local'",
+                    `set service pppoe-server client-ip-pool PPPOE-POOL range ${form.clientIpPoolRange}`,
+                    "set service pppoe-server default-pool 'PPPOE-POOL'",
+                    `set service pppoe-server gateway-address '${form.gatewayIP}'`,
+                );
+
+                for (const ns of nameservers.slice(0, 2)) {
+                    lines.push(`set service pppoe-server name-server '${ns}'`);
+                }
+
+                lines.push(
+                    'set service pppoe-server ppp-options disable-ccp',
+                    "set service pppoe-server ppp-options ipv4 'prefer'",
+                    "set service pppoe-server ppp-options lcp-echo-failure '5'",
+                    "set service pppoe-server ppp-options lcp-echo-interval '5'",
+                    "set service pppoe-server ppp-options min-mtu '1000'",
+                    "set service pppoe-server mtu '1454'",
+                    "set service pppoe-server ppp-options mru '1454'",
+                    '# 1アカウントで複数セッション可能',
+                    "set service pppoe-server session-control 'disable'",
+                );
+
+                return lines.join('\n') + '\n';
+            },
+
+            /** ユーザー情報セクションの設定行を生成 */
+            buildUsersSection(usersData) {
+                const lines = ['', '# ユーザー情報'];
+
+                if (!usersData) return lines.join('\n') + '\n';
+
+                for (const line of usersData.split('\n')) {
+                    if (!line.trim()) continue;
+
+                    const parts = parseCSVLine(line);
+                    if (parts.length < 2) continue;
+
+                    const username = parts[0].trim();
+                    const password = parts[1].trim();
+                    const staticIP = (parts[2] || '').trim();
+
+                    lines.push(`set service pppoe-server authentication local-users username ${quoteVyosString(username)} password ${quoteVyosString(password)}`);
+
+                    if (staticIP && staticIP !== '-') {
+                        const { ip, prefix } = IPv4.parseCIDR(staticIP);
+                        lines.push(`set service pppoe-server authentication local-users username ${username} static-ip ${ip}`);
+                        if (prefix !== 32) {
+                            lines.push(`set protocols static route ${IPv4.networkAddress(ip, prefix)}/${prefix} next-hop ${ip}`);
+                        }
+                    }
+                }
+
+                return lines.join('\n') + '\n';
+            },
+
+            /** VyOS PPPoE 設定ファイルを生成して表示 */
+            generate() {
+                try {
+                    Validation.validateNetworkFields();
+                    const configForm = DOM.get('configForm');
+                    if (!configForm.checkValidity()) {
+                        configForm.reportValidity();
+                        return;
+                    }
+
+                    const form = Form.getValues();
+
+                    // 必須フィールドの検証
+                    if (!form.pppoeInterface || !form.gatewayIP || (form.upstreamEnabled && !form.upstreamInterface)) {
+                        alert('必須フィールドを入力してください。');
+                        return;
+                    }
+                    if (form.upstreamEnabled && form.addressType === 'static' && (!form.upstreamAddress || !form.gatewayAddress)) {
+                        alert('固定IPアドレス選択時は、アドレスとゲートウェイを入力してください。');
+                        return;
+                    }
+                    if (!IPv4.isValidPoolRange(form.clientIpPoolRange)) {
+                        alert('IPプール範囲は 開始IP-終了IP の形式で 1つ入力してください。');
+                        return;
+                    }
+
+                    // 上流セクション生成（バリデーション失敗で null が返る）
+                    const upstreamResult = ConfigBuilder.buildUpstreamSection(form);
+                    if (!upstreamResult) return;
+
+                    const config = [
+                        'configure\n',
+                        ConfigBuilder.buildInitSection(form.includeInit),
+                        "set system host-name 'PPPoE-Server'\n",
+                        upstreamResult.lines,
+                        ConfigBuilder.buildPppoeSection(form, upstreamResult.nameservers),
+                        ConfigBuilder.buildUsersSection(form.usersData),
+                        'commit ; save ; exit\n',
+                        'true\n',
+                    ].join('');
+
+                    const outputElement = DOM.get('output');
+                    const copyBtn = DOM.get('copyBtn');
+
+                    outputElement.textContent = config;
+                    outputElement.classList.remove('hidden');
+                    copyBtn.classList.remove('hidden');
+
+                    outputElement.scrollIntoView({ behavior: 'smooth' });
+                } catch (error) {
+                    console.error('設定生成エラー:', error);
+                    alert('設定ファイルの生成中にエラーが発生しました。入力を確認してください。');
+                }
+            },
+        };
+
+        // ============================================================
+        // クリップボードコピー
+        // ============================================================
+
+        /** 生成された設定をクリップボードにコピー */
+        const copyToClipboard = async () => {
+            try {
+                const text = DOM.get('output').textContent;
+
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    // フォールバック
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-9999px';
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                }
+
+                const copyBtn = DOM.get('copyBtn');
+                const originalText = copyBtn.textContent;
+
+                copyBtn.textContent = 'コピーしました！';
+                copyBtn.classList.add('success');
+
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.classList.remove('success');
+                }, 2000);
+            } catch (error) {
+                console.error('クリップボードコピーエラー:', error);
+                alert('クリップボードへのコピーに失敗しました。');
+            }
+        };
+
+        // ============================================================
+        // 初期化
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            DOM.init();
+            Form.applyDefaults();
+            toggleUpstreamFields();
+
+            // フォーム全体の入力イベントでバリデーション
+            DOM.get('configForm').addEventListener('input', Validation.validateNetworkFields);
+
+            // ボタンイベント
+            DOM.get('generateBtn').addEventListener('click', ConfigBuilder.generate);
+            DOM.get('copyBtn').addEventListener('click', copyToClipboard);
+            DOM.get('openSubnetCalcBtn').addEventListener('click', SubnetCalculator.open);
+            DOM.get('openUsageBtn').addEventListener('click', UsageGuide.open);
+
+            // blur 時のバリデーション（input は configForm の input イベントでカバー済み）
+            for (const id of ['upstreamAddress', 'gatewayAddress', 'gatewayIP', 'nameservers', 'clientIpPoolRange']) {
+                DOM.get(id).addEventListener('blur', Validation.validateNetworkFields);
+            }
+
+            // アドレスタイプ / 上流有効切替
+            const onUpstreamChange = () => {
+                toggleUpstreamFields();
+                Validation.validateNetworkFields();
+            };
+            DOM.get('addressType').addEventListener('change', onUpstreamChange);
+            DOM.get('enableUpstream').addEventListener('change', onUpstreamChange);
+
+            Validation.validateNetworkFields();
+        });
+    </script>
+</body>
+
+</html>
