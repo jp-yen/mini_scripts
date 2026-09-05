@@ -2,3 +2,21 @@
 *.o
 a.out
 *.exe
+
+# .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+publish/
+**/publish/
+*.7z
+*.zip
+*.pdb
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# AI scripts / Scratch
+font-selector/scripts/
+

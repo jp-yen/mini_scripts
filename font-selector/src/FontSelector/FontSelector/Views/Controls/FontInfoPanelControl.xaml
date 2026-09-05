@@ -1,0 +1,169 @@
+<UserControl x:Class="FontSelector.Views.Controls.FontInfoPanelControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="LanguageTagButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource CardBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryText}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TagBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}"
+                                TextElement.Foreground="{TemplateBinding Foreground}"
+                                TextElement.FontWeight="{TemplateBinding FontWeight}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TagBorder" Property="Background" Value="{DynamicResource HoverBackground}" />
+                                <Setter TargetName="TagBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="TagBorder" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="TagBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="White" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsSelected}" Value="True" />
+                                    <Condition Binding="{Binding Path=IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="TagBorder" Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+                                <Setter TargetName="TagBorder" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
+                                <Setter Property="Foreground" Value="White" />
+                            </MultiDataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Border Background="{DynamicResource PanelBackground}"
+            Margin="12,2,12,4" CornerRadius="8"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12,4">
+        <StackPanel Orientation="Vertical">
+            <!-- Row 1: Core metadata -->
+            <WrapPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="フォントファミリー: " Foreground="{DynamicResource MutedText}" FontSize="12" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding InfoAllFamilyNames}" ToolTip="{Binding InfoAllFamilyNames}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="300" />
+                    <Button Style="{DynamicResource MiniButton}" Content="📋"
+                            Command="{Binding CopyFontFamilyCommand}" ToolTip="フォントファミリー名をコピー"
+                            Margin="4,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="太さ: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoWeight}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="スタイル: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoStyle}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="分類: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoCategory}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="文字幅: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoSpacing}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="言語: " Foreground="{DynamicResource MutedText}" FontSize="12" VerticalAlignment="Center" />
+                    <TextBlock Text="—" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasLanguages}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding InfoLanguageTags}" VerticalAlignment="Center">
+                        <ItemsControl.Style>
+                            <Style TargetType="ItemsControl">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasLanguages}" Value="False">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.Style>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource LanguageTagButton}"
+                                        Content="{Binding Name}"
+                                        ToolTip="{Binding ToolTipText}"
+                                        Command="{Binding DataContext.SelectFilterLanguageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding Name}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </WrapPanel>
+
+            <!-- Row 2: Extended metadata -->
+            <WrapPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="バージョン: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoVersion}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="提供元: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoVendor}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="形式: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoFileFormat}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="ファイル名: " Foreground="{DynamicResource MutedText}" FontSize="12" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding InfoFileName}" ToolTip="{Binding InfoFilePath}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="250" />
+                    <Button Style="{DynamicResource MiniButton}" Content="📋"
+                            Command="{Binding CopyFilePathCommand}" ToolTip="ファイルパスをコピー"
+                            Margin="4,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="アウトライン: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoOutlineFormat}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="配置先: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoInstallType}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="機能: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoFeatures}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                    <TextBlock Text="バリアブル: " Foreground="{DynamicResource MutedText}" FontSize="12" />
+                    <TextBlock Text="{Binding InfoIsVariableText}" Foreground="{DynamicResource PrimaryText}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+            </WrapPanel>
+        </StackPanel>
+    </Border>
+</UserControl>
