@@ -1,0 +1,70 @@
+<UserControl x:Class="FontSelector.Views.Controls.FontListControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Background="{DynamicResource PanelBackground}"
+            CornerRadius="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+        <ListBox x:Name="FontList"
+                 Style="{DynamicResource FontListBox}"
+                 ItemContainerStyle="{DynamicResource FontListBoxItem}"
+                 ItemsSource="{Binding FilteredFamilies}"
+                 SelectedItem="{Binding SelectedFamily}"
+                 SelectionChanged="FontList_SelectionChanged"
+                 VirtualizingStackPanel.IsVirtualizing="True"
+                 VirtualizingStackPanel.VirtualizationMode="Recycling"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 BorderThickness="0" Background="Transparent">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Vertical">
+                        <!-- Context Menu for Right-Click -->
+                        <StackPanel.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="📋 フォントファミリーをコピー"
+                                          Command="{Binding DataContext.CopyFontFamilyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          CommandParameter="{Binding}" />
+                                <MenuItem Header="📋 フォント名（スタイル含む）をコピー"
+                                          Command="{Binding DataContext.CopyFontNameCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          CommandParameter="{Binding}" />
+                                <MenuItem Header="📋 CSS font-family をコピー"
+                                          Command="{Binding DataContext.CopyCssCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          CommandParameter="{Binding}" />
+                                <Separator Style="{DynamicResource PanelSeparator}" />
+                                <MenuItem Header="📋 ファイルパスをコピー"
+                                          Command="{Binding DataContext.CopyFilePathCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          CommandParameter="{Binding}" />
+                            </ContextMenu>
+                        </StackPanel.ContextMenu>
+
+                        <!-- Family Name + Typeface Count Badge -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding FamilyName}" FontSize="13"
+                                       Foreground="{DynamicResource PrimaryText}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <Border Grid.Column="1" Background="{DynamicResource CardBackground}"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="3" Padding="4,1" Margin="4,0,0,0"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding TypefaceCountDisplay}"
+                                           FontSize="10" Foreground="{DynamicResource MutedText}" />
+                            </Border>
+                        </Grid>
+
+                        <TextBlock FontFamily="{Binding DefaultTypeface.FontFamily}"
+                                   FontWeight="{Binding DefaultTypeface.Weight}"
+                                   FontStyle="{Binding DefaultTypeface.Style}"
+                                   FontStretch="{Binding DefaultTypeface.Stretch}"
+                                   Text="AaBbCc あいう"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource MutedText}"
+                                   Margin="0,2,0,0"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Border>
+</UserControl>

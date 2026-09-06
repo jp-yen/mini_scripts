@@ -1,0 +1,25 @@
+<UserControl x:Class="FontSelector.Views.Controls.SearchBarControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:FontSelector.Converters">
+    <UserControl.Resources>
+        <converters:ThemeIconConverter x:Key="ThemeIconConverter" />
+    </UserControl.Resources>
+    <Border Background="{DynamicResource WindowBackground}" Padding="12,6,12,2">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0" Style="{DynamicResource SearchTextBox}"
+                     Text="{Binding Filters.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="フォント名 / キーワードで検索 (Ctrl+F)" />
+            <Button Grid.Column="1" Style="{DynamicResource IconButton}"
+                    Command="{Binding ToggleThemeCommand}"
+                    ToolTip="{Binding CurrentThemeDisplayName, StringFormat='テーマ切替 (現在: {0})'}"
+                    Margin="8,0,0,0">
+                <TextBlock Text="{Binding CurrentTheme, Converter={StaticResource ThemeIconConverter}}" FontSize="18" />
+            </Button>
+        </Grid>
+    </Border>
+</UserControl>

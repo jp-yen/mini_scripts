@@ -1,0 +1,105 @@
+<UserControl x:Class="FontSelector.Views.Controls.FilterBarControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Background="{DynamicResource WindowBackground}" Padding="12,2,12,2">
+        <StackPanel Orientation="Vertical">
+            <!-- 1行目: 基本フィルタ（言語・分類・文字幅・太さ・スタイル・字幅） -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="言語" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}"
+                              ItemsSource="{Binding Filters.AvailableLanguages}" SelectedItem="{Binding Filters.SelectedLanguage}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="分類" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}"
+                              ItemsSource="{Binding Filters.AvailableCategories}" SelectedItem="{Binding Filters.SelectedCategory}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="文字幅" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}"
+                              ItemsSource="{Binding Filters.AvailableSpacings}" SelectedItem="{Binding Filters.SelectedSpacing}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="太さ" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}"
+                              ItemsSource="{Binding Filters.AvailableWeights}" SelectedItem="{Binding Filters.SelectedWeight}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="スタイル" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}"
+                              ItemsSource="{Binding Filters.AvailableStyles}" SelectedItem="{Binding Filters.SelectedStyle}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="字幅" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}" MinWidth="100"
+                              ItemsSource="{Binding Filters.AvailableStretches}" SelectedItem="{Binding Filters.SelectedStretch}" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 2行目: 機能フィルタ（チェックボックス） -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <CheckBox Content="Nerd Fonts" IsChecked="{Binding Filters.FilterNerdFonts}"
+                          Foreground="{DynamicResource PrimaryText}" FontSize="12"
+                          VerticalAlignment="Center" Margin="0,0,16,0" />
+                <CheckBox Content="合字 (リガチャ)" IsChecked="{Binding Filters.FilterLigatures}"
+                          Foreground="{DynamicResource PrimaryText}" FontSize="12"
+                          VerticalAlignment="Center" Margin="0,0,16,0" />
+                <CheckBox Content="斜線ゼロ" IsChecked="{Binding Filters.FilterSlashedZero}"
+                          Foreground="{DynamicResource PrimaryText}" FontSize="12"
+                          VerticalAlignment="Center" Margin="0,0,16,0" />
+                <CheckBox Content="バリアブルフォント" IsChecked="{Binding Filters.FilterVariableFont}"
+                          Foreground="{DynamicResource PrimaryText}" FontSize="12"
+                          VerticalAlignment="Center" Margin="0,0,16,0" />
+                <CheckBox Content="異体字 (IVS)" IsChecked="{Binding Filters.FilterIvs}"
+                          Foreground="{DynamicResource PrimaryText}" FontSize="12"
+                          VerticalAlignment="Center" Margin="0,0,16,0" />
+            </StackPanel>
+
+            <!-- 3行目: 技術仕様フィルタ（形式・提供元・配置先・文字セット） -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="形式" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}" MinWidth="90"
+                              ItemsSource="{Binding Filters.AvailableFileFormats}" SelectedItem="{Binding Filters.SelectedFileFormat}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="アウトライン" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}" MinWidth="110"
+                              ItemsSource="{Binding Filters.AvailableOutlineFormats}" SelectedItem="{Binding Filters.SelectedOutlineFormat}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="提供元" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}" MinWidth="160"
+                              ItemsSource="{Binding Filters.AvailableVendors}" SelectedItem="{Binding Filters.SelectedVendor}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="配置先" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}" MinWidth="90"
+                              ItemsSource="{Binding Filters.AvailableInstallTypes}" SelectedItem="{Binding Filters.SelectedInstallType}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                    <TextBlock Text="文字セット" Foreground="{DynamicResource SecondaryText}"
+                               VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0" />
+                    <ComboBox Style="{DynamicResource FilterComboBox}" MinWidth="140"
+                              ItemsSource="{Binding Filters.AvailableCharSets}" SelectedItem="{Binding Filters.SelectedCharSet}" />
+                </StackPanel>
+
+                <!-- クリアボタン -->
+                <Button Style="{DynamicResource AccentButton}" Content="クリア"
+                        Height="26" Padding="14,0" VerticalAlignment="Center"
+                        Command="{Binding Filters.ClearFiltersCommand}" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

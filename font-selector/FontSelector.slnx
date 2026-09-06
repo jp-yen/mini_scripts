@@ -1,6 +1,6 @@
 <Solution>
   <Folder Name="/src/" />
   <Folder Name="/src/FontSelector/">
-    <Project Path="src/FontSelector/FontSelector/FontSelector.csproj" />
+    <Project Path="src/FontSelector/FontSelector.csproj" />
   </Folder>
 </Solution>

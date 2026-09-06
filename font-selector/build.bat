@@ -3,10 +3,11 @@ setlocal enabledelayedexpansion
 
 cd /d "%~dp0"
 
-set "PUBLISH_DIR=%~dp0publish"
+set "PUBLISH_DIR=publish"
 set "TARGET_EXE=%PUBLISH_DIR%\FontSelector.exe"
 set "TARGET_PDB=%PUBLISH_DIR%\FontSelector.pdb"
-set "PROJECT_PATH=%~dp0src\FontSelector\FontSelector\FontSelector.csproj"
+set "PROJECT_PATH=src\FontSelector\FontSelector.csproj"
+
 
 echo ===================================================
 echo  Font Selector - Build and Publish Script
