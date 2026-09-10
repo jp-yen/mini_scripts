@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selection Clean Copy 設定</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="header">
+      <div class="logo-area">
+        <span class="logo-icon">📋</span>
+        <div>
+          <h1 class="title">Selection Clean Copy</h1>
+          <p class="subtitle">Firefox 拡張機能 - 行番号削除</p>
+        </div>
+      </div>
+      <span class="badge">v1.0.0</span>
+    </header>
+
+    <div class="shortcut-banner">
+      <span class="key-tag">Alt</span> + <span class="key-tag">C</span>
+      <span class="shortcut-desc">でも直接クリーンコピー可能</span>
+    </div>
+
+    <section class="section">
+      <h2 class="section-title">クリーニング設定</h2>
+
+      <label class="toggle-row">
+        <div class="toggle-text">
+          <span class="toggle-label">行番号の削除</span>
+          <span class="toggle-sub">1 | , 1: , 01 など自動検出</span>
+        </div>
+        <input type="checkbox" id="removeLineNumbers" checked>
+        <span class="slider"></span>
+      </label>
+
+      <label class="toggle-row">
+        <div class="toggle-text">
+          <span class="toggle-label">プロンプト記号の削除</span>
+          <span class="toggle-sub">$ , > , # などのシェル記号</span>
+        </div>
+        <input type="checkbox" id="removePromptPrefixes" checked>
+        <span class="slider"></span>
+      </label>
+
+      <label class="toggle-row">
+        <div class="toggle-text">
+          <span class="toggle-label">フローティングコピーボタン</span>
+          <span class="toggle-sub">選択時に [行番号なしコピー] を表示</span>
+        </div>
+        <input type="checkbox" id="showFloatingButton" checked>
+        <span class="slider"></span>
+      </label>
+
+      <label class="toggle-row">
+        <div class="toggle-text">
+          <span class="toggle-label">Ctrl+C キャプチャ優先</span>
+          <span class="toggle-sub">Copilot等のCtrl+C禁止環境を突破</span>
+        </div>
+        <input type="checkbox" id="interceptCtrlC" checked>
+        <span class="slider"></span>
+      </label>
+    </section>
+
+    <section class="section test-box-section">
+      <h2 class="section-title">クイック動作テスト</h2>
+      <textarea id="testInput" rows="3" placeholder="行番号付きテキストを貼り付けてテスト...
+1 | const greeting = 'Hello';
+2 | console.log(greeting);"></textarea>
+      <button id="testCleanBtn" class="primary-button">クリーン化してクリップボードにコピー</button>
+      <div id="testStatus" class="test-status"></div>
+    </section>
+
+    <footer class="footer">
+      <span>右クリックメニューからも使用できます</span>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

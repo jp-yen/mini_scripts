@@ -1,0 +1,130 @@
+/* Firefox Selection Clean Copy - Injected Styles */
+
+/* 1. Floating Copy HUD */
+#ff-clean-copy-floating-hud {
+  position: absolute;
+  z-index: 2147483647;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #1e1e24;
+  color: #f3f4f6;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+  user-select: none;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+#ff-clean-copy-floating-hud:hover {
+  background: #ff7139;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 113, 57, 0.4);
+}
+
+#ff-clean-copy-floating-hud:active {
+  transform: translateY(0);
+}
+
+#ff-clean-copy-floating-hud .ff-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+#ff-clean-copy-floating-hud .ff-label {
+  letter-spacing: -0.01em;
+}
+
+/* 2. Toast Notification */
+#ff-clean-copy-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647;
+  background: #111827;
+  color: #10b981;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.ff-clean-copy-toast-visible {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+}
+
+.ff-clean-copy-floating-visible {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.ff-clean-copy-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(4px) scale(0.95);
+}
+
+/* 3. Automatic CSS line-number selection prevention for common code blocks & Copilot */
+/* This prevents the browser from including line numbers in the native selection */
+.blob-num,
+.line-numbers-rows,
+.prism-line-numbers,
+.hljs-ln-numbers,
+.CodeMirror-linenumber,
+.monaco-editor .line-numbers,
+td.gutter,
+[data-line-number]::before,
+.diff-line-num,
+/* Copilot / Fluent UI Editor line numbers (div containing only line numbers) */
+._4272b89f6ce67708,
+div[class*="_4272b89f"],
+[role="textbox"][aria-label*="コード"] > div:not([data-line-index]),
+[role="textbox"][aria-label*="code" i] > div:not([data-line-index]),
+.scriptor-component-code-block div:not([data-line-index]):not([class*="_8bdf0508"]) {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  pointer-events: none !important;
+}
+
+/* 4. Copilot Injected Clean Copy Button */
+.ff-copilot-clean-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ff7139;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(255, 113, 57, 0.3);
+  transition: all 0.15s ease;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.ff-copilot-clean-copy-btn:hover {
+  background: #ff5714;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 113, 57, 0.45);
+}
+
+.ff-copilot-clean-copy-btn:active {
+  transform: translateY(0);
+}
