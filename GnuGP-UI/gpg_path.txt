@@ -1,0 +1,1 @@
+D:\Program Files\GnuPG\bin\gpg.exe
