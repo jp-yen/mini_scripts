@@ -6,31 +6,61 @@
   z-index: 2147483647;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   background: #1e1e24;
   color: #f3f4f6;
-  padding: 6px 12px;
+  padding: 3px 6px;
   border-radius: 9999px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.12);
-  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.14);
+  transition: opacity 0.15s ease, transform 0.15s ease;
   user-select: none;
   pointer-events: auto;
   white-space: nowrap;
 }
 
-#ff-clean-copy-floating-hud:hover {
-  background: #ff7139;
-  color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 113, 57, 0.4);
+.ff-hud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  color: #f3f4f6;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 
-#ff-clean-copy-floating-hud:active {
-  transform: translateY(0);
+.ff-hud-btn:hover {
+  background: #ff7139;
+  color: #ffffff;
+}
+
+.ff-hud-btn:active {
+  transform: scale(0.96);
+}
+
+.ff-hud-btn-highlight {
+  background: rgba(255, 113, 57, 0.2);
+  color: #ff9d75;
+}
+
+.ff-hud-btn-highlight:hover {
+  background: #ff7139;
+  color: #ffffff;
+}
+
+.ff-hud-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 2px;
 }
 
 #ff-clean-copy-floating-hud .ff-icon {
@@ -76,8 +106,8 @@
   transform: translateY(4px) scale(0.95);
 }
 
-/* 3. Automatic CSS line-number selection prevention for common code blocks & Copilot */
-/* This prevents the browser from including line numbers in the native selection */
+/* 3. Automatic CSS line-number selection prevention for common code blocks */
+/* Only target known standalone gutter/line-number classes */
 .blob-num,
 .line-numbers-rows,
 .prism-line-numbers,
@@ -86,20 +116,42 @@
 .monaco-editor .line-numbers,
 td.gutter,
 [data-line-number]::before,
-.diff-line-num,
-/* Copilot / Fluent UI Editor line numbers (div containing only line numbers) */
-._4272b89f6ce67708,
-div[class*="_4272b89f"],
-[role="textbox"][aria-label*="コード"] > div:not([data-line-index]),
-[role="textbox"][aria-label*="code" i] > div:not([data-line-index]),
-.scriptor-component-code-block div:not([data-line-index]):not([class*="_8bdf0508"]) {
+.diff-line-num {
   user-select: none !important;
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
-  pointer-events: none !important;
 }
 
-/* 4. Copilot Injected Clean Copy Button */
+/* Ensure code blocks and program lines are ALWAYS selectable by the user */
+.scriptor-component-code-block,
+.scriptor-component-code-block *,
+[role="textbox"],
+[role="textbox"] *,
+[data-line-index],
+[data-line-index] *,
+pre,
+code,
+pre *,
+code * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+}
+
+/* 4. Copilot Injected Clean Copy Button & Floating UI (Strictly unselectable) */
+.ff-copilot-clean-copy-btn,
+.ff-copilot-clean-copy-btn *,
+#ff-clean-copy-floating-hud,
+#ff-clean-copy-floating-hud *,
+#ff-clean-copy-toast,
+#ff-clean-copy-toast *,
+[data-ff-clean-copy-ui],
+[data-ff-clean-copy-ui] * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+}
+
 .ff-copilot-clean-copy-btn {
   display: inline-flex;
   align-items: center;
