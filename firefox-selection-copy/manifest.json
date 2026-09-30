@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Selection Clean Copy (行番号削除コピー)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Copilotやターミナル出力から行番号・プロンプトを除去し、Ctrl+C禁止環境でも確実にコピーできるFirefox拡張機能",
   "browser_specific_settings": {
     "gecko": {
@@ -10,6 +10,7 @@
     }
   },
   "permissions": [
+    "tabs",
     "activeTab",
     "contextMenus",
     "clipboardWrite",

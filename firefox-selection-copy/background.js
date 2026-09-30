@@ -1,16 +1,24 @@
 /**
  * Firefox Selection Clean Copy - Background Service
- * Manifest V3 Resilient Background Service:
- * 1. Keep-Alive Heartbeat: Prevents idle suspension and keeps service active
- * 2. Auto-Injection: Injects content script into existing tabs immediately upon load
- * 3. Context Menu Synchronization: Synchronously registered at top-level
- * 4. Keyboard Hotkeys (Alt+C) & Cross-Context Clipboard Copy
+ * 
+ * 主な役割:
+ * 1. コンテキストメニュー & キーボードショートカット (Alt+C) の管理
+ * 2. 拡張機能ロード時・起動時の既存タブへの content.js 自動注入
+ * 3. ページ側制限をバイパスする特権クリップボード書き込み (bg_write_clipboard)
+ * 4. バックグラウンドサービスのアイドル停止防止 (Keep-Alive)
+ * 5. 完全ホワイトリスト方式による有効ドメイン判定
  */
 
 // Cross-browser compatibility wrapper (browser / chrome)
 const extApi = typeof browser !== 'undefined' ? browser : chrome;
 
-// Top-level Context Menu Setup
+/* ==========================================================================
+   1. コンテキストメニュー設定
+   ========================================================================== */
+
+/**
+ * 右クリックコンテキストメニューの登録
+ */
 function setupContextMenu() {
   if (!extApi.contextMenus) return;
   try {
@@ -32,21 +40,71 @@ function setupContextMenu() {
   }
 }
 
-// Ensure context menus are created immediately on top-level script load
+// スクリプト読み込み時に同期登録
 setupContextMenu();
 
-// Handle Context Menu clicks (Top-level listener)
-extApi.contextMenus.onClicked.addListener((info, tab) => {
+/* ==========================================================================
+   2. ドメイン判定 (完全ホワイトリスト方式 & Copilotファミリー相互認識)
+   ========================================================================== */
+
+/**
+ * ドメインの一致判定（サブドメイン対応 & 関連サービス連動）
+ */
+function isDomainMatched(hostname, domainPattern) {
+  if (!hostname || !domainPattern) return false;
+  const h = hostname.toLowerCase().trim();
+  let p = domainPattern.toLowerCase().trim();
+  p = p.replace(/^[a-zA-Z]+:\/\//, '').split('/')[0].split(':')[0];
+  if (!p) return false;
+
+  // 1. 完全一致またはサブドメイン一致
+  if (h === p || h.endsWith('.' + p)) return true;
+
+  // 2. Copilot / Bing サービスファミリーの相互認識
+  const copilotFamily = ['copilot.microsoft.com', 'bing.com', 'edgeservices.bing.com', 'cloud.microsoft'];
+  const pIsCopilot = copilotFamily.some(f => p === f || p.endsWith('.' + f));
+  const hIsCopilot = copilotFamily.some(f => h === f || h.endsWith('.' + f));
+  return pIsCopilot && hIsCopilot;
+}
+
+/**
+ * タブの URL が登録済み有効ドメインに含まれているかを判定
+ */
+async function isDomainEnabledForTab(tab) {
+  if (!tab || !tab.url) return false;
+  try {
+    const url = new URL(tab.url);
+    const hostname = url.hostname.toLowerCase();
+    if (!hostname) return false;
+
+    const data = await extApi.storage.sync.get({ enabledDomains: [] });
+    const list = Array.isArray(data.enabledDomains) ? data.enabledDomains : [];
+
+    // 完全ホワイトリスト方式：未登録（空）または指定外では動作しない
+    if (list.length === 0) return false;
+    return list.some(d => isDomainMatched(hostname, d));
+  } catch (e) {
+    return false;
+  }
+}
+
+/* ==========================================================================
+   3. メニュー操作 & ショートカットハンドラ
+   ========================================================================== */
+
+// コンテキストメニュークリック時のハンドラ
+extApi.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab || !tab.id) return;
+  if (!await isDomainEnabledForTab(tab)) return;
 
   const stripPrompts = (info.menuItemId === "clean-copy-with-prompts");
 
-  // Send message to content script to clean selection and copy
+  // Content script にクリーンコピーを要求
   extApi.tabs.sendMessage(tab.id, {
     action: "clean_and_copy",
     stripPrompts: stripPrompts
-  }).catch((err) => {
-    // If content script was not ready, fallback using selectionText + tab injection
+  }).catch(() => {
+    // Content script 未準備時のフォールバック処理
     if (info.selectionText) {
       const cleaned = cleanCodeString(info.selectionText, { stripPrompts });
       copyTextToClipboard(cleaned, tab.id);
@@ -54,39 +112,47 @@ extApi.contextMenus.onClicked.addListener((info, tab) => {
   });
 });
 
-// Handle Keyboard Shortcut (Alt+C) (Top-level listener)
-extApi.commands.onCommand.addListener((command) => {
+// ショートカットキー (Alt+C) のハンドラ
+extApi.commands.onCommand.addListener(async (command) => {
   if (command === "copy-clean-selection") {
-    extApi.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+    try {
+      const tabs = await extApi.tabs.query({ active: true, currentWindow: true });
       if (tabs && tabs[0] && tabs[0].id) {
+        if (!await isDomainEnabledForTab(tabs[0])) return;
         extApi.tabs.sendMessage(tabs[0].id, {
           action: "clean_and_copy",
           stripPrompts: false
         }).catch(() => {
-          // If content script is missing, inject and retry
           injectIntoTab(tabs[0].id);
         });
       }
-    });
+    } catch (e) {}
   }
 });
 
-// Auto-inject into currently open tabs (Solves: "Loaded extension but already open tabs don't work")
+/* ==========================================================================
+   4. タブへのスクリプト自動注入 & ライフサイクル管理
+   ========================================================================== */
+
+/**
+ * 指定タブに content script と CSS を注入
+ */
 function injectIntoTab(tabId) {
   if (!tabId || !extApi.scripting) return;
   extApi.scripting.executeScript({
     target: { tabId, allFrames: true },
     files: ["content.js"]
-  }).catch((err) => {
-    // Some tabs (e.g. restricted URLs) cannot be scripted
-    console.debug("[CleanCopy] injectIntoTab error:", err);
-  });
+  }).catch(() => {});
+
   extApi.scripting.insertCSS({
     target: { tabId, allFrames: true },
     files: ["content.css"]
   }).catch(() => {});
 }
 
+/**
+ * 開いているすべての通常タブにスクリプトを注入
+ */
 function injectIntoAllTabs() {
   if (!extApi.tabs || !extApi.scripting) return;
   extApi.tabs.query({}).then((tabs) => {
@@ -98,10 +164,10 @@ function injectIntoAllTabs() {
   }).catch(() => {});
 }
 
-// Immediately inject into tabs on script execution
+// スクリプト起動時に開いている全タブへ即時注入
 injectIntoAllTabs();
 
-// Lifecycle listeners
+// インストール・アップデート・起動時リスナー
 extApi.runtime.onInstalled.addListener(() => {
   setupContextMenu();
   injectIntoAllTabs();
@@ -112,59 +178,106 @@ extApi.runtime.onStartup.addListener(() => {
   injectIntoAllTabs();
 });
 
-// Keep-Alive Connection Handler from Content Scripts (Prevents background suspension)
-extApi.runtime.onConnect.addListener((port) => {
-  if (port.name === "clean-copy-keepalive") {
-    port.onMessage.addListener((msg) => {
-      if (msg && msg.type === "ping") {
-        try {
-          port.postMessage({ type: "pong", timestamp: Date.now() });
-        } catch (e) {}
-      }
-    });
-  }
-});
+/* ==========================================================================
+   5. 特権クリップボード書き込み (Background Service)
+   ========================================================================== */
 
-// Privileged Clipboard Writer via Background Service (solves page-level document.execCommand restrictions)
+/**
+ * ページ内 document.execCommand 制限をバイパスする特権書き込みリスナー
+ */
 extApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message && message.action === "bg_write_clipboard") {
     const textToCopy = message.text || "";
-    if (sender.tab && sender.tab.id) {
+
+    // 1. 特権 Background 環境での navigator.clipboard.writeText
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        sendResponse({ status: "success" });
+      }).catch(() => {
+        const ok = fallbackExecCommand(textToCopy);
+        if (ok) {
+          sendResponse({ status: "success" });
+        } else if (sender.tab && sender.tab.id) {
+          copyTextToClipboard(textToCopy, sender.tab.id);
+          sendResponse({ status: "success" });
+        } else {
+          sendResponse({ status: "error", message: "Copy failed" });
+        }
+      });
+      return true;
+    }
+
+    // 2. navigator.clipboard 非対応時のフォールバック
+    const ok = fallbackExecCommand(textToCopy);
+    if (ok) {
+      sendResponse({ status: "success" });
+    } else if (sender.tab && sender.tab.id) {
       copyTextToClipboard(textToCopy, sender.tab.id);
       sendResponse({ status: "success" });
     } else {
-      sendResponse({ status: "error", message: "No tab found" });
+      sendResponse({ status: "error", message: "Copy failed" });
     }
     return true;
   }
 });
 
-// Periodic Alarms to reliably wake up background script and refresh listeners
-if (extApi.alarms) {
+/**
+ * Background ページコンテキストでの execCommand コピー補助
+ */
+function fallbackExecCommand(text) {
   try {
-    extApi.alarms.create("keepAliveAlarm", { periodInMinutes: 0.4 });
-    extApi.alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name === "keepAliveAlarm") {
-        setupContextMenu();
-      }
-    });
+    if (typeof document !== 'undefined' && document.body) {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return ok;
+    }
   } catch (e) {}
+  return false;
 }
 
-// Continuous runtime keepalive loop (prevents idle timeout while active)
-setInterval(() => {
-  if (extApi.runtime && extApi.runtime.getPlatformInfo) {
-    extApi.runtime.getPlatformInfo().catch(() => {});
-  }
-}, 20000);
+/**
+ * タブコンテキストでのスクリプト実行によるクリップボード書き込みフォールバック
+ */
+function copyTextToClipboard(text, tabId) {
+  if (!tabId || !extApi.scripting) return;
+  extApi.scripting.executeScript({
+    target: { tabId },
+    func: (textToCopy) => {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = textToCopy;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      } catch (e) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(textToCopy).catch(() => {});
+        }
+      }
+    },
+    args: [text]
+  }).catch(() => {});
+}
 
-// Fallback line cleaner for string inputs
+/**
+ * 文字列ベースの簡易コードクリーニング（フォールバック用）
+ */
 function cleanCodeString(text, options = {}) {
   if (!text) return "";
-  let normalized = text.replace(/\u00A0/g, ' ');
+  const normalized = text.replace(/\u00A0/g, ' ');
   const lines = normalized.split(/\r?\n/);
   
-  // Copilot lone number line detection
+  // Copilot 分離行番号の判定
   const loneNumRegex = /^\s*\d+\s*$/;
   let loneCount = 0;
   let nonEmpty = 0;
@@ -195,7 +308,7 @@ function cleanCodeString(text, options = {}) {
     processed = lines;
   }
 
-  // Detect whether text appears to be code or plain text / prose (地の文)
+  // コードらしい特徴の有無を判定
   const looksLikeCode = isCopilotInterleaved ||
     /^\s*\d+[\s:\|\t]+/m.test(normalized) ||
     /^\s*\[\d+\]/m.test(normalized) ||
@@ -203,17 +316,16 @@ function cleanCodeString(text, options = {}) {
 
   const result = processed.map(line => {
     let l = line;
-    // Strip code gutter line numbers like "  1 | ", "1: ", "1  ", "[1] "
+    // 行番号 (" 1 | ", "1: ", "[1] ") を除去
     l = l.replace(/^\s*\d+[\s:\|\t]+/, '');
     l = l.replace(/^\s*\[\d+\]\s*/, '');
 
-    // Only strip numbered lists if the text is code, NOT prose (地の文)
+    // コードと判定された場合のみ番号付きリスト・プロンプトを除去
     if (looksLikeCode) {
       l = l.replace(/^\s*\d+\.\s+/, '');
-    }
-
-    if (options.stripPrompts && looksLikeCode) {
-      l = l.replace(/^\s*[$%>#]\s+/, '');
+      if (options.stripPrompts) {
+        l = l.replace(/^\s*[$%>#]\s+/, '');
+      }
     }
     return l;
   });
@@ -221,28 +333,38 @@ function cleanCodeString(text, options = {}) {
   return result.join('\n');
 }
 
-// Fallback clipboard writer via tab context script execution
-function copyTextToClipboard(text, tabId) {
-  if (!tabId || !extApi.scripting) return;
-  extApi.scripting.executeScript({
-    target: { tabId },
-    func: (textToCopy) => {
-      try {
-        const textarea = document.createElement("textarea");
-        textarea.value = textToCopy;
-        textarea.setAttribute("readonly", "");
-        textarea.style.position = "fixed";
-        textarea.style.left = "-9999px";
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-      } catch (e) {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(textToCopy).catch(() => {});
-        }
+/* ==========================================================================
+   6. Keep-Alive & アイドル停止防止
+   ========================================================================== */
+
+// Content Script からの接続ポート管理
+extApi.runtime.onConnect.addListener((port) => {
+  if (port.name === "clean-copy-keepalive") {
+    port.onMessage.addListener((msg) => {
+      if (msg && msg.type === "ping") {
+        try {
+          port.postMessage({ type: "pong", timestamp: Date.now() });
+        } catch (e) {}
       }
-    },
-    args: [text]
-  }).catch(() => {});
+    });
+  }
+});
+
+// アラームによる定期ウェイクアップ（コンテキストメニューの整合性維持）
+if (extApi.alarms) {
+  try {
+    extApi.alarms.create("keepAliveAlarm", { periodInMinutes: 0.4 });
+    extApi.alarms.onAlarm.addListener((alarm) => {
+      if (alarm.name === "keepAliveAlarm") {
+        setupContextMenu();
+      }
+    });
+  } catch (e) {}
 }
+
+// アイドルタイムアウト防止用ループ
+setInterval(() => {
+  if (extApi.runtime && extApi.runtime.getPlatformInfo) {
+    extApi.runtime.getPlatformInfo().catch(() => {});
+  }
+}, 20000);
