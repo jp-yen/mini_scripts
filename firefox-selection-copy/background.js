@@ -28,12 +28,6 @@ function setupContextMenu() {
         title: "📋 行番号を除去してコピー",
         contexts: ["selection"]
       });
-
-      extApi.contextMenus.create({
-        id: "clean-copy-with-prompts",
-        title: "⚡ 行番号 & プロンプト記号($/>)を除去してコピー",
-        contexts: ["selection"]
-      });
     });
   } catch (e) {
     console.warn("[CleanCopy] setupContextMenu error:", e);
@@ -44,7 +38,7 @@ function setupContextMenu() {
 setupContextMenu();
 
 /* ==========================================================================
-   2. ドメイン判定 (完全ホワイトリスト方式 & Copilotファミリー相互認識)
+   2. ドメイン判定 (完全ホワイトリスト方式 & 関連ドメイン相互認識)
    ========================================================================== */
 
 /**
@@ -60,11 +54,11 @@ function isDomainMatched(hostname, domainPattern) {
   // 1. 完全一致またはサブドメイン一致
   if (h === p || h.endsWith('.' + p)) return true;
 
-  // 2. Copilot / Bing サービスファミリーの相互認識
-  const copilotFamily = ['copilot.microsoft.com', 'bing.com', 'edgeservices.bing.com', 'cloud.microsoft'];
-  const pIsCopilot = copilotFamily.some(f => p === f || p.endsWith('.' + f));
-  const hIsCopilot = copilotFamily.some(f => h === f || h.endsWith('.' + f));
-  return pIsCopilot && hIsCopilot;
+  // 2. 関連サービスファミリーの相互認識
+  const relatedDomains = ['copilot.microsoft.com', 'bing.com', 'edgeservices.bing.com', 'cloud.microsoft'];
+  const pIsRelated = relatedDomains.some(f => p === f || p.endsWith('.' + f));
+  const hIsRelated = relatedDomains.some(f => h === f || h.endsWith('.' + f));
+  return pIsRelated && hIsRelated;
 }
 
 /**
@@ -97,16 +91,13 @@ extApi.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab || !tab.id) return;
   if (!await isDomainEnabledForTab(tab)) return;
 
-  const stripPrompts = (info.menuItemId === "clean-copy-with-prompts");
-
   // Content script にクリーンコピーを要求
   extApi.tabs.sendMessage(tab.id, {
-    action: "clean_and_copy",
-    stripPrompts: stripPrompts
+    action: "clean_and_copy"
   }).catch(() => {
     // Content script 未準備時のフォールバック処理
     if (info.selectionText) {
-      const cleaned = cleanCodeString(info.selectionText, { stripPrompts });
+      const cleaned = cleanCodeString(info.selectionText);
       copyTextToClipboard(cleaned, tab.id);
     }
   });
@@ -120,8 +111,7 @@ extApi.commands.onCommand.addListener(async (command) => {
       if (tabs && tabs[0] && tabs[0].id) {
         if (!await isDomainEnabledForTab(tabs[0])) return;
         extApi.tabs.sendMessage(tabs[0].id, {
-          action: "clean_and_copy",
-          stripPrompts: false
+          action: "clean_and_copy"
         }).catch(() => {
           injectIntoTab(tabs[0].id);
         });
@@ -277,7 +267,7 @@ function cleanCodeString(text, options = {}) {
   const normalized = text.replace(/\u00A0/g, ' ');
   const lines = normalized.split(/\r?\n/);
   
-  // Copilot 分離行番号の判定
+  // 分離行番号の判定
   const loneNumRegex = /^\s*\d+\s*$/;
   let loneCount = 0;
   let nonEmpty = 0;
@@ -289,10 +279,10 @@ function cleanCodeString(text, options = {}) {
     }
   }
 
-  const isCopilotInterleaved = (loneCount >= 2) || (loneCount >= 1 && nonEmpty <= 4);
+  const isInterleavedLineNumbers = (loneCount >= 2) || (loneCount >= 1 && nonEmpty <= 4);
   let processed = [];
 
-  if (isCopilotInterleaved) {
+  if (isInterleavedLineNumbers) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
@@ -309,7 +299,7 @@ function cleanCodeString(text, options = {}) {
   }
 
   // コードらしい特徴の有無を判定
-  const looksLikeCode = isCopilotInterleaved ||
+  const looksLikeCode = isInterleavedLineNumbers ||
     /^\s*\d+[\s:\|\t]+/m.test(normalized) ||
     /^\s*\[\d+\]/m.test(normalized) ||
     /\b(import|def|function|const|let|var|class|return|export)\b/.test(normalized);
@@ -319,14 +309,6 @@ function cleanCodeString(text, options = {}) {
     // 行番号 (" 1 | ", "1: ", "[1] ") を除去
     l = l.replace(/^\s*\d+[\s:\|\t]+/, '');
     l = l.replace(/^\s*\[\d+\]\s*/, '');
-
-    // コードと判定された場合のみ番号付きリスト・プロンプトを除去
-    if (looksLikeCode) {
-      l = l.replace(/^\s*\d+\.\s+/, '');
-      if (options.stripPrompts) {
-        l = l.replace(/^\s*[$%>#]\s+/, '');
-      }
-    }
     return l;
   });
 

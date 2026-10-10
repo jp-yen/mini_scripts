@@ -1,0 +1,12 @@
+{
+  "addons": {
+    "selection-clean-copy@firefox.addon": {
+      "updates": [
+        {
+          "version": "1.1.1",
+          "update_link": "https://github.com/jp-yen/mini_scripts/releases/download/v1.1.1/selection-clean-copy-1.1.1.xpi"
+        }
+      ]
+    }
+  }
+}

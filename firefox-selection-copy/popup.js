@@ -17,7 +17,6 @@ const extApi = typeof browser !== 'undefined' ? browser : chrome;
 
 const defaultSettings = {
   removeLineNumbers: true,
-  removePromptPrefixes: true,
   showFloatingButton: true,
   interceptCtrlC: true,
   enabledDomains: []
@@ -31,7 +30,7 @@ let enabledDomains = [];
 const dom = {};
 
 /* ==========================================================================
-   2. ドメイン判定 (完全ホワイトリスト方式 & Copilotファミリー相互認識)
+   2. ドメイン判定 (完全ホワイトリスト方式 & 関連ドメイン相互認識)
    ========================================================================== */
 
 /**
@@ -47,11 +46,11 @@ function isDomainMatched(hostname, domainPattern) {
   // 1. 完全一致またはサブドメイン一致
   if (h === p || h.endsWith('.' + p)) return true;
 
-  // 2. Copilot / Bing サービスファミリーの相互認識
-  const copilotFamily = ['copilot.microsoft.com', 'bing.com', 'edgeservices.bing.com', 'cloud.microsoft'];
-  const pIsCopilot = copilotFamily.some(f => p === f || p.endsWith('.' + f));
-  const hIsCopilot = copilotFamily.some(f => h === f || h.endsWith('.' + f));
-  return pIsCopilot && hIsCopilot;
+  // 2. 関連サービスファミリーの相互認識
+  const relatedDomains = ['copilot.microsoft.com', 'bing.com', 'edgeservices.bing.com', 'cloud.microsoft'];
+  const pIsRelated = relatedDomains.some(f => p === f || p.endsWith('.' + f));
+  const hIsRelated = relatedDomains.some(f => h === f || h.endsWith('.' + f));
+  return pIsRelated && hIsRelated;
 }
 
 /**
@@ -107,7 +106,7 @@ function renderEnabledDomainsList() {
   if (!dom.enabledDomainList) return;
 
   dom.enabledDomainCount.textContent = enabledDomains.length;
-  dom.enabledDomainList.innerHTML = "";
+  dom.enabledDomainList.replaceChildren();
 
   if (enabledDomains.length === 0) {
     const emptyHint = document.createElement("div");
@@ -195,7 +194,6 @@ function removeEnabledDomain(domain) {
 function saveSettings() {
   const current = {
     removeLineNumbers: dom.lineNumCheckbox.checked,
-    removePromptPrefixes: dom.promptsCheckbox.checked,
     showFloatingButton: dom.floatBtnCheckbox.checked,
     interceptCtrlC: dom.ctrlCCheckbox.checked
   };
@@ -225,7 +223,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   dom.enabledDomainList = document.getElementById("enabledDomainList");
 
   dom.lineNumCheckbox = document.getElementById("removeLineNumbers");
-  dom.promptsCheckbox = document.getElementById("removePromptPrefixes");
   dom.floatBtnCheckbox = document.getElementById("showFloatingButton");
   dom.ctrlCCheckbox = document.getElementById("interceptCtrlC");
 
@@ -267,7 +264,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (storageArea) {
     storageArea.get(defaultSettings, (saved) => {
       dom.lineNumCheckbox.checked = (saved.removeLineNumbers !== undefined) ? saved.removeLineNumbers : true;
-      dom.promptsCheckbox.checked = (saved.removePromptPrefixes !== undefined) ? saved.removePromptPrefixes : true;
       dom.floatBtnCheckbox.checked = (saved.showFloatingButton !== undefined) ? saved.showFloatingButton : true;
       dom.ctrlCCheckbox.checked = (saved.interceptCtrlC !== undefined) ? saved.interceptCtrlC : true;
       
@@ -323,7 +319,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 6. 各設定チェックボックスの変更イベント
   dom.lineNumCheckbox.addEventListener("change", saveSettings);
-  dom.promptsCheckbox.addEventListener("change", saveSettings);
   dom.floatBtnCheckbox.addEventListener("change", saveSettings);
   dom.ctrlCCheckbox.addEventListener("change", saveSettings);
 });

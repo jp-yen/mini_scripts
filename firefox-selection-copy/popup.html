@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Selection Clean Copy 設定</title>
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
   <div class="popup-container">
     <header class="header">
@@ -13,10 +15,10 @@
         <span class="logo-icon">📋</span>
         <div>
           <h1 class="title">Selection Clean Copy</h1>
-          <p class="subtitle">Firefox 拡張機能 - 行番号削除</p>
+          <p class="subtitle">Ctrl+C禁止環境でもコピーしたい！</p>
         </div>
       </div>
-      <span class="badge">v1.1.0</span>
+      <span class="badge">v1.1.1</span>
     </header>
 
     <div class="shortcut-banner">
@@ -52,7 +54,7 @@
 
       <div id="domainManagerContent" class="domain-manager-content domain-manager-collapsed">
         <div class="domain-input-group">
-          <input type="text" id="manualDomainInput" placeholder="例: chatgpt.com" autocomplete="off">
+          <input type="text" id="manualDomainInput" placeholder="例: example.com" autocomplete="off">
           <button type="button" id="manualAddDomainBtn" class="add-btn">追加</button>
         </div>
         <div id="enabledDomainList" class="domain-list"></div>
@@ -74,15 +76,6 @@
 
       <label class="toggle-row">
         <div class="toggle-text">
-          <span class="toggle-label">プロンプト記号の削除</span>
-          <span class="toggle-sub">$ , > , # などのシェル記号</span>
-        </div>
-        <input type="checkbox" id="removePromptPrefixes" checked>
-        <span class="slider"></span>
-      </label>
-
-      <label class="toggle-row">
-        <div class="toggle-text">
           <span class="toggle-label">フローティングコピーボタン</span>
           <span class="toggle-sub">選択時に [行番号なしコピー] を表示</span>
         </div>
@@ -93,7 +86,7 @@
       <label class="toggle-row">
         <div class="toggle-text">
           <span class="toggle-label">Ctrl+C キャプチャ優先</span>
-          <span class="toggle-sub">Copilot等のCtrl+C禁止環境を突破</span>
+          <span class="toggle-sub">Webページ側のCtrl+C禁止スクリプトを突破</span>
         </div>
         <input type="checkbox" id="interceptCtrlC" checked>
         <span class="slider"></span>
@@ -106,4 +99,5 @@
   </div>
   <script src="popup.js"></script>
 </body>
+
 </html>

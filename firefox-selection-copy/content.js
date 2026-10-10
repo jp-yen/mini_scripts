@@ -4,12 +4,12 @@
  * 主な機能:
  * 1. 行番号・プロンプト記号・UIゴミのインテリジェント自動除去 (コード / 地の文 自動判別)
  * 2. コピー制限・Ctrl+C禁止環境のキャプチャ相バイパス
- * 3. Copilot等のコードブロックに対する「行番号なし全コピー」ボタンの自動注入 (1ブロック1ボタン保証)
+ * 3. コードブロックに対する「行番号なし全コピー」ボタンの自動注入 (1ブロック1ボタン保証)
  * 4. テキスト選択時のフローティングHUDメニュー
  * 5. 完全ホワイトリスト方式による指定ドメイン限定動作
  */
 
-(function() {
+(function () {
   if (window.__ffSelectionCleanCopyInjected) return;
   window.__ffSelectionCleanCopyInjected = true;
 
@@ -20,7 +20,6 @@
      ========================================================================== */
   let config = {
     removeLineNumbers: true,
-    removePromptPrefixes: true,
     preserveIndentation: true,
     showFloatingButton: true,
     interceptCtrlC: true,
@@ -65,12 +64,11 @@
     // 1. 完全一致またはサブドメイン一致
     if (h === p || h.endsWith('.' + p)) return true;
 
-    // 2. Copilot / Bing サービスファミリーの相互認識
-    // ユーザーが copilot.microsoft.com を登録した場合、埋め込みエンジン (edgeservices.bing.com 等) も連動許可
-    const copilotFamily = ['copilot.microsoft.com', 'bing.com', 'edgeservices.bing.com', 'cloud.microsoft'];
-    const pIsCopilot = copilotFamily.some(f => p === f || p.endsWith('.' + f));
-    const hIsCopilot = copilotFamily.some(f => h === f || h.endsWith('.' + f));
-    return pIsCopilot && hIsCopilot;
+    // 2. 関連サービスファミリーの相互認識
+    const relatedDomains = ['copilot.microsoft.com', 'bing.com', 'edgeservices.bing.com', 'cloud.microsoft'];
+    const pIsRelated = relatedDomains.some(f => p === f || p.endsWith('.' + f));
+    const hIsRelated = relatedDomains.some(f => h === f || h.endsWith('.' + f));
+    return pIsRelated && hIsRelated;
   }
 
   /**
@@ -85,18 +83,18 @@
       if (window.top && window.top !== window && window.top.location && window.top.location.hostname) {
         hosts.push(window.top.location.hostname.toLowerCase());
       }
-    } catch (e) {}
+    } catch (e) { }
     try {
       if (window.parent && window.parent !== window && window.parent.location && window.parent.location.hostname) {
         hosts.push(window.parent.location.hostname.toLowerCase());
       }
-    } catch (e) {}
+    } catch (e) { }
     try {
       if (document.referrer) {
         const refUrl = new URL(document.referrer);
         if (refUrl.hostname) hosts.push(refUrl.hostname.toLowerCase());
       }
-    } catch (e) {}
+    } catch (e) { }
 
     if (hosts.length === 0) return false;
 
@@ -112,10 +110,10 @@
   function applyDomainStatus() {
     const enabled = isCurrentDomainEnabled();
     if (!enabled) {
-      document.querySelectorAll('.ff-copilot-clean-copy-btn').forEach(btn => btn.remove());
+      document.querySelectorAll('.ff-clean-copy-injected-btn').forEach(btn => btn.remove());
       hideFloatingButton();
     } else {
-      injectCopilotButtons();
+      injectCopyButtons();
     }
     return enabled;
   }
@@ -189,7 +187,7 @@
       try {
         await navigator.clipboard.writeText(text);
         return true;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // 2. 同期 execCommand フォールバック
@@ -223,7 +221,7 @@
       document.body.removeChild(textarea);
 
       if (ok || handled) return true;
-    } catch (e) {}
+    } catch (e) { }
 
     // 3. バックグラウンド特権書き込みフォールバック (タイムアウト1秒)
     try {
@@ -239,7 +237,7 @@
           return true;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     return false;
   }
@@ -274,17 +272,17 @@
    */
   function analyzeTextSelection(rawText, containerEl) {
     if (!rawText || !rawText.trim()) {
-      return { isProse: true, isCode: false, isCopilotVirtualized: false, hasLineNumbers: false };
+      return { isProse: true, isCode: false, isVirtualized: false, hasLineNumbers: false };
     }
 
     const insideCode = isInsideCodeBlock(containerEl);
     const normalized = rawText.replace(/\u00A0/g, ' ');
     const lines = normalized.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-    // 1. Copilotの分離行番号 (例: "import os\n2\nfrom...")
+    // 1. 分離された行番号 (例: "import os\n2\nfrom...")
     const loneNumRegex = /^\s*\d+\s*$/;
     const loneNums = lines.filter(l => loneNumRegex.test(l));
-    const isCopilotInterleaved = (loneNums.length >= 2) || (loneNums.length >= 1 && lines.length <= 4 && insideCode);
+    const isInterleavedLineNumbers = (loneNums.length >= 2) || (loneNums.length >= 1 && lines.length <= 4 && insideCode);
 
     // 2. 行頭の区切り記号付き行番号 (" 1 | code", "1: code", "[1] code")
     const gutterNums = lines.filter(l => /^\d+\s*[\:\|]\s+/.test(l) || /^\[\d+\]\s*/.test(l));
@@ -294,7 +292,7 @@
     const spacePrefixed = lines.filter(l => /^\d{1,4}\s{2,}\S/.test(l));
     const hasSpaceNums = spacePrefixed.length >= 2 && insideCode;
 
-    const hasLineNumbers = isCopilotInterleaved || hasGutterNums || hasSpaceNums;
+    const hasLineNumbers = isInterleavedLineNumbers || hasGutterNums || hasSpaceNums;
     const isCode = insideCode || hasLineNumbers;
 
     const virtualizedBlock = containerEl?.closest?.(
@@ -304,7 +302,7 @@
     return {
       isProse: !isCode,
       isCode,
-      isCopilotVirtualized: !!virtualizedBlock,
+      isVirtualized: !!virtualizedBlock,
       virtualizedBlock: virtualizedBlock || null,
       hasLineNumbers
     };
@@ -336,7 +334,7 @@
         continue;
       }
 
-      // 2. Copilot / Web UI のアクションボタン・フッター
+      // 2. Web UI のアクションボタン・フッター
       if (
         /^その他の行を表示(する)?$/i.test(trimmed) ||
         /^Show (more|all) lines$/i.test(trimmed) ||
@@ -361,26 +359,13 @@
       cleanedLines.push(line);
     }
 
-    // 連続する空行を最大1行に圧縮
-    const collapsed = [];
-    let consecutiveBlanks = 0;
-    for (const l of cleanedLines) {
-      if (l.trim() === '') {
-        consecutiveBlanks++;
-        if (consecutiveBlanks <= 1) collapsed.push('');
-      } else {
-        consecutiveBlanks = 0;
-        collapsed.push(l);
-      }
-    }
-
-    // 前後の空行を除去
+    // 前後の余分な空行を除去（コード内部の連続する空行は表示との比較のためそのまま完全に保持）
     let s = 0;
-    while (s < collapsed.length && collapsed[s].trim() === '') s++;
-    let e = collapsed.length - 1;
-    while (e >= s && collapsed[e].trim() === '') e--;
+    while (s < cleanedLines.length && cleanedLines[s].trim() === '') s++;
+    let e = cleanedLines.length - 1;
+    while (e >= s && cleanedLines[e].trim() === '') e--;
     if (s > e) return "";
-    return collapsed.slice(s, e + 1).join('\n');
+    return cleanedLines.slice(s, e + 1).join('\n');
   }
 
   /**
@@ -402,9 +387,8 @@
     if (lines.length === 0) return "";
 
     const stripNumbers = options.removeLineNumbers ?? config.removeLineNumbers;
-    const stripPrompts = options.stripPrompts ?? config.removePromptPrefixes;
 
-    // パターン1: Copilotの分離行番号 (2, 3...)
+    // パターン1: 分離された行番号 (2, 3...)
     let loneNumberLineCount = 0;
     let totalNonEmpty = 0;
     const loneNumRegex = /^\s*\d+\s*$/;
@@ -417,10 +401,10 @@
       }
     }
 
-    const isCopilotInterleaved = (loneNumberLineCount >= 2) || (loneNumberLineCount >= 1 && totalNonEmpty <= 4);
+    const isInterleavedLineNumbers = (loneNumberLineCount >= 2) || (loneNumberLineCount >= 1 && totalNonEmpty <= 4);
     let processedLines = [];
 
-    if (stripNumbers && isCopilotInterleaved) {
+    if (stripNumbers && isInterleavedLineNumbers) {
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const trimmed = line.trim();
@@ -436,18 +420,13 @@
       processedLines = lines;
     }
 
-    // パターン2: 行頭の行番号 (1 | , 1:, [1], 01.) および プロンプト記号 ($ > #)
+    // パターン2: 行頭の行番号 (1 | , 1:, [1])
+    // コード本文の内容・記号（$, >, #, %, // など）は改変せずそのまま保持
     const cleanedLines = processedLines.map((line) => {
       let l = line;
       if (stripNumbers) {
         l = l.replace(/^\s*\d+[\s:\|\t]+/, '');
         l = l.replace(/^\s*\[\d+\]\s*/, '');
-        if (!options.isProse) {
-          l = l.replace(/^\s*\d+\.\s+/, '');
-        }
-      }
-      if (stripPrompts && !options.isProse) {
-        l = l.replace(/^\s*[$%>#]\s+/, '');
       }
       return l;
     });
@@ -539,12 +518,12 @@
       const codeEl = block.querySelector('code, pre, [role="textbox"], .scriptor-codeblock-virtualized');
       if (codeEl) {
         const clone = codeEl.cloneNode(true);
-        clone.querySelectorAll('.ff-copilot-clean-copy-btn, [data-ff-clean-copy-ui], .blob-num, .line-numbers-rows').forEach(el => el.remove());
+        clone.querySelectorAll('.ff-clean-copy-injected-btn, [data-ff-clean-copy-ui], .blob-num, .line-numbers-rows').forEach(el => el.remove());
         const t = clone.innerText || clone.textContent;
         if (t && t.trim()) return t;
       }
       const blockClone = block.cloneNode(true);
-      blockClone.querySelectorAll('.ff-copilot-clean-copy-btn, [data-ff-clean-copy-ui], .blob-num, .line-numbers-rows').forEach(el => el.remove());
+      blockClone.querySelectorAll('.ff-clean-copy-injected-btn, [data-ff-clean-copy-ui], .blob-num, .line-numbers-rows').forEach(el => el.remove());
       return blockClone.innerText || blockClone.textContent || "";
     };
 
@@ -585,28 +564,40 @@
     const totalScroll = scrollContainer.scrollHeight;
     const viewportH = scrollContainer.clientHeight;
 
-    showToast("🚀 仮想スクロールを走査中... 全コードを収集中");
+    showToast("🚀 長文コードを走査中... 全行を収集しています");
 
+    // 最上部へ移動してレンダリング待機
     scrollContainer.scrollTop = 0;
+    await new Promise(r => setTimeout(r, 40));
     harvestVisibleLines();
 
-    const step = Math.max(150, Math.floor(viewportH * 0.8));
+    // ビューポートの60%ずつスクロールして行の取りこぼしを防止
+    const step = Math.max(120, Math.floor(viewportH * 0.6));
     let currentTop = 0;
-    let maxSteps = 30; // 安全上限
+    // 数千行〜1万行の長文コードでも確実に最後まで走査できるよう上限を拡大 (最大500ステップ)
+    const estimatedSteps = Math.ceil(totalScroll / step) + 30;
+    let maxSteps = Math.min(500, Math.max(150, estimatedSteps));
+    let lastScrollTop = -1;
 
     while (currentTop < totalScroll && maxSteps > 0) {
       maxSteps--;
       currentTop += step;
       scrollContainer.scrollTop = Math.min(currentTop, totalScroll);
-      await new Promise(r => setTimeout(r, 16));
+      // DOMレンダリング待機 (各スクロール位置で行要素が生成されるのを待つ)
+      await new Promise(r => setTimeout(r, 25));
       harvestVisibleLines();
 
-      if (scrollContainer.scrollTop + viewportH >= totalScroll - 4) {
+      // 最下部到達判定
+      if (scrollContainer.scrollTop === lastScrollTop ||
+        scrollContainer.scrollTop + viewportH >= totalScroll - 2) {
         break;
       }
+      lastScrollTop = scrollContainer.scrollTop;
     }
 
-    scrollContainer.scrollTop = totalScroll;
+    // 最後に念のため最下部を確実に収集
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    await new Promise(r => setTimeout(r, 40));
     harvestVisibleLines();
     scrollContainer.scrollTop = origScrollTop;
 
@@ -641,9 +632,9 @@
   /**
    * コードブロックに対する「行番号なし全コピー」ボタンの自動注入 (1ブロック1ボタン厳守)
    */
-  function injectCopilotButtons() {
+  function injectCopyButtons() {
     if (!isCurrentDomainEnabled()) {
-      document.querySelectorAll('.ff-copilot-clean-copy-btn').forEach(btn => btn.remove());
+      document.querySelectorAll('.ff-clean-copy-injected-btn').forEach(btn => btn.remove());
       return;
     }
 
@@ -674,7 +665,7 @@
 
     // 各最上位ルートに対して 1 つだけボタンを保証配置
     distinctRoots.forEach((block) => {
-      const existingBtns = block.querySelectorAll('.ff-copilot-clean-copy-btn');
+      const existingBtns = block.querySelectorAll('.ff-clean-copy-injected-btn');
       if (existingBtns.length > 0) {
         // 重複した余分なボタンのみ削除
         for (let i = 1; i < existingBtns.length; i++) {
@@ -688,16 +679,23 @@
         '.fui-Overflow, [role="toolbar"], .codeblock-toolbar, [class*="toolbar" i], ._803b581d5ee80236, .a3d13fac2210ea8e'
       );
 
+      function setBtnState(btn, icon, text) {
+        const iconSpan = document.createElement('span');
+        iconSpan.style.fontSize = '12px';
+        iconSpan.style.marginRight = '4px';
+        iconSpan.textContent = icon;
+        const textSpan = document.createElement('span');
+        textSpan.textContent = text;
+        btn.replaceChildren(iconSpan, textSpan);
+      }
+
       const cleanBtn = document.createElement('button');
       cleanBtn.type = 'button';
-      cleanBtn.className = 'ff-copilot-clean-copy-btn';
+      cleanBtn.className = 'ff-clean-copy-injected-btn';
       cleanBtn.setAttribute('data-ff-clean-copy-ui', 'true');
       cleanBtn.setAttribute('aria-hidden', 'true');
       cleanBtn.title = '行番号をすべて除外してコード全体をコピー';
-      cleanBtn.innerHTML = `
-        <span style="font-size:12px;margin-right:4px;">📋</span>
-        <span>行番号なし全コピー</span>
-      `;
+      setBtnState(cleanBtn, '📋', '行番号なし全コピー');
 
       cleanBtn.addEventListener('mousedown', (e) => {
         e.stopPropagation();
@@ -707,25 +705,18 @@
         e.preventDefault();
         e.stopPropagation();
 
-        const originalText = cleanBtn.innerHTML;
         cleanBtn.disabled = true;
-        cleanBtn.innerHTML = `
-          <span style="font-size:12px;margin-right:4px;">⏳</span>
-          <span>コピー中...</span>
-        `;
+        setBtnState(cleanBtn, '⏳', 'コピー中...');
 
         try {
           await copyCodeBlock(block);
-          cleanBtn.innerHTML = `
-            <span style="font-size:12px;margin-right:4px;">✅</span>
-            <span>コピー完了！</span>
-          `;
+          setBtnState(cleanBtn, '✅', 'コピー完了！');
           setTimeout(() => {
-            cleanBtn.innerHTML = originalText;
+            setBtnState(cleanBtn, '📋', '行番号なし全コピー');
             cleanBtn.disabled = false;
           }, 2000);
         } catch (err) {
-          cleanBtn.innerHTML = originalText;
+          setBtnState(cleanBtn, '📋', '行番号なし全コピー');
           cleanBtn.disabled = false;
         }
       });
@@ -744,11 +735,29 @@
   }
 
   // 動的ロード対応の定期注入監視
-  setInterval(injectCopilotButtons, 1000);
+  setInterval(injectCopyButtons, 1000);
 
   /* ==========================================================================
      6. UIコンポーネント (Floating HUD / Toast)
      ========================================================================== */
+
+  function createHudSpan(cls, text) {
+    const span = document.createElement("span");
+    span.className = cls;
+    span.textContent = text;
+    return span;
+  }
+
+  function createHudBtn(id, title, icon, label, extraClass = "") {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = extraClass ? `ff-hud-btn ${extraClass}` : "ff-hud-btn";
+    btn.id = id;
+    btn.title = title;
+    btn.appendChild(createHudSpan("ff-icon", icon));
+    btn.appendChild(createHudSpan("ff-label", label));
+    return btn;
+  }
 
   /**
    * UIの初期化
@@ -762,10 +771,10 @@
     floatingBtn.className = "ff-clean-copy-hidden";
     floatingBtn.setAttribute("data-ff-clean-copy-ui", "true");
     floatingBtn.setAttribute("aria-hidden", "true");
-    floatingBtn.innerHTML = `
-      <span class="ff-icon">📋</span>
-      <span class="ff-label">行番号なしコピー</span>
-    `;
+    floatingBtn.replaceChildren(
+      createHudSpan("ff-icon", "📋"),
+      createHudSpan("ff-label", "行番号なしコピー")
+    );
     document.body.appendChild(floatingBtn);
 
     floatingBtn.addEventListener("mousedown", (e) => {
@@ -776,7 +785,7 @@
     floatingBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      executeCleanCopy({ stripPrompts: config.removePromptPrefixes });
+      executeCleanCopy();
       hideFloatingButton();
     });
 
@@ -838,31 +847,17 @@
       if (!floatingBtn) return;
 
       if (analysis.isProse) {
-        floatingBtn.innerHTML = `
-          <button type="button" class="ff-hud-btn" id="ff-hud-copy-prose" title="地の文をそのままコピー">
-            <span class="ff-icon">📋</span>
-            <span class="ff-label">地の文をコピー</span>
-          </button>
-        `;
+        const proseBtn = createHudBtn("ff-hud-copy-prose", "地の文をそのままコピー", "📋", "地の文をコピー");
+        floatingBtn.replaceChildren(proseBtn);
       } else if (virtualizedBlock) {
-        floatingBtn.innerHTML = `
-          <button type="button" class="ff-hud-btn" id="ff-hud-copy-selection" title="選択した範囲を行番号なしでコピー">
-            <span class="ff-icon">📋</span>
-            <span class="ff-label">選択範囲をコピー</span>
-          </button>
-          <span class="ff-hud-divider"></span>
-          <button type="button" class="ff-hud-btn ff-hud-btn-highlight" id="ff-hud-scan-all" title="プログラム表示領域内をスクロール走査して全体をコピー">
-            <span class="ff-icon">📜</span>
-            <span class="ff-label">全体を走査コピー</span>
-          </button>
-        `;
+        const copySelectionBtn = createHudBtn("ff-hud-copy-selection", "選択した範囲を行番号なしでコピー", "📋", "選択範囲をコピー");
+        const divider = document.createElement("span");
+        divider.className = "ff-hud-divider";
+        const scanAllBtn = createHudBtn("ff-hud-scan-all", "プログラム表示領域内をスクロール走査して全体をコピー", "📜", "全体を走査コピー", "ff-hud-btn-highlight");
+        floatingBtn.replaceChildren(copySelectionBtn, divider, scanAllBtn);
       } else {
-        floatingBtn.innerHTML = `
-          <button type="button" class="ff-hud-btn" id="ff-hud-copy-clean" title="行番号を除去してコピー">
-            <span class="ff-icon">📋</span>
-            <span class="ff-label">行番号なしコピー</span>
-          </button>
-        `;
+        const cleanCopyBtn = createHudBtn("ff-hud-copy-clean", "行番号を除去してコピー", "📋", "行番号なしコピー");
+        floatingBtn.replaceChildren(cleanCopyBtn);
       }
 
       // ボタンクリックイベントの登録
@@ -881,7 +876,7 @@
         copyCleanBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
         copyCleanBtn.onclick = (e) => {
           e.preventDefault(); e.stopPropagation();
-          executeCleanCopy({ isProse: false, stripPrompts: config.removePromptPrefixes });
+          executeCleanCopy({ isProse: false });
           hideFloatingButton();
         };
       }
@@ -891,7 +886,7 @@
         copySelectionBtn.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); };
         copySelectionBtn.onclick = (e) => {
           e.preventDefault(); e.stopPropagation();
-          executeCleanCopy({ isProse: false, stripPrompts: config.removePromptPrefixes });
+          executeCleanCopy({ isProse: false });
           hideFloatingButton();
         };
       }
@@ -946,13 +941,13 @@
         ? range.commonAncestorContainer
         : range.commonAncestorContainer.parentElement;
 
-      // 1. Copilot仮想コードブロックの個別行判定
-      const copilotBlock = container?.closest?.(
+      // 1. 仮想コードブロックの個別行判定
+      const codeBlockEl = container?.closest?.(
         '.scriptor-component-code-block, [role="textbox"][aria-label*="コード"], [role="textbox"][aria-label*="code" i]'
       ) || (container?.matches?.('.scriptor-component-code-block') ? container : null);
 
-      if (copilotBlock) {
-        const lineElements = Array.from(copilotBlock.querySelectorAll('[data-line-index]'));
+      if (codeBlockEl) {
+        const lineElements = Array.from(codeBlockEl.querySelectorAll('[data-line-index]'));
         if (lineElements.length > 0) {
           const selectedLineTexts = [];
           for (const lineEl of lineElements) {
@@ -969,7 +964,7 @@
       // 2. 選択範囲全体のサニタイズ（注入ボタンやUIゴミの除去）
       const fragment = range.cloneContents();
       const unwanted = fragment.querySelectorAll(
-        '.ff-copilot-clean-copy-btn, #ff-clean-copy-floating-hud, #ff-clean-copy-toast, [data-ff-clean-copy-ui], .scriptor-clean-copy-btn, .blob-num, .line-numbers-rows, .prism-line-numbers, .diff-line-num, ._4272b89f6ce67708'
+        '.ff-clean-copy-injected-btn, #ff-clean-copy-floating-hud, #ff-clean-copy-toast, [data-ff-clean-copy-ui], .scriptor-clean-copy-btn, .blob-num, .line-numbers-rows, .prism-line-numbers, .diff-line-num, ._4272b89f6ce67708'
       );
       unwanted.forEach(el => el.remove());
 
@@ -979,7 +974,7 @@
       if (cleanedDOMText && cleanedDOMText.trim()) {
         return cleanedDOMText;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     return selection.toString();
   }
@@ -1052,7 +1047,7 @@
             try {
               sel.removeAllRanges();
               sel.addRange(savedSelectionRange);
-            } catch (err) {}
+            } catch (err) { }
           }
         }
       }
@@ -1077,7 +1072,7 @@
       try {
         sel.removeAllRanges();
         sel.addRange(savedSelectionRange);
-      } catch (err) {}
+      } catch (err) { }
     }
     const currentSel = window.getSelection();
     if (currentSel && !currentSel.isCollapsed && currentSel.toString().trim().length > 0) {
@@ -1098,8 +1093,8 @@
 
     const container = selection.rangeCount > 0
       ? (selection.getRangeAt(0).commonAncestorContainer.nodeType === 1
-          ? selection.getRangeAt(0).commonAncestorContainer
-          : selection.getRangeAt(0).commonAncestorContainer.parentElement)
+        ? selection.getRangeAt(0).commonAncestorContainer
+        : selection.getRangeAt(0).commonAncestorContainer.parentElement)
       : null;
 
     const analysis = analyzeTextSelection(rawText, container);
@@ -1178,7 +1173,7 @@
     }
 
     if (request.action === "clean_and_copy") {
-      executeCleanCopy({ stripPrompts: request.stripPrompts });
+      executeCleanCopy();
       sendResponse({ status: "success" });
     }
     return true;
@@ -1193,8 +1188,8 @@
         keepAlivePort = null;
         setTimeout(initKeepAlive, 5000);
       });
-      keepAlivePort.onMessage.addListener(() => {});
-    } catch (e) {}
+      keepAlivePort.onMessage.addListener(() => { });
+    } catch (e) { }
   }
 
   setInterval(() => {

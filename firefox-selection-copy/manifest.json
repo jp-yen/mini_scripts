@@ -1,12 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "Selection Clean Copy (行番号削除コピー)",
-  "version": "1.1.0",
-  "description": "Copilotやターミナル出力から行番号・プロンプトを除去し、Ctrl+C禁止環境でも確実にコピーできるFirefox拡張機能",
+  "name": "Selection Clean Copy",
+  "version": "1.1.1",
+  "description": "Ctrl+C禁止環境でもコピーしたい人のためのFirefox拡張機能。行番号を除去し、コード本文を改変せず確実にコピーします。",
   "browser_specific_settings": {
     "gecko": {
       "id": "selection-clean-copy@firefox.addon",
-      "strict_min_version": "109.0"
+      "strict_min_version": "142.0",
+      "update_url": "https://raw.githubusercontent.com/jp-yen/mini_scripts/main/firefox-selection-copy/updates.json",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   },
   "permissions": [
@@ -22,13 +28,21 @@
     "<all_urls>"
   ],
   "background": {
-    "scripts": ["background.js"]
+    "scripts": [
+      "background.js"
+    ]
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "all_frames": true,
       "match_about_blank": true,
       "run_at": "document_start"
