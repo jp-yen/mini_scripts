@@ -1,5 +1,14 @@
 ﻿# mini_scripts
 
+
+- alarm-window (PowerShell)<br />
+  アラームウィンドウを表示。スクリプトと同じディレクトリにある a.wav を連続再生 (最後のアラームから 10分で停止)
+```powershell
+  .\alarm.ps1 "メッセージ"
+```
+  で、メッセージをウィンドウに表示
+  複数回発生した場合でも、一つのウィンドウですべてのメッセージを表示
+
 - fake_user.py (py)<br />
   AD のユーザーを PowerShell で登録できる形式 (CSV) でランダムに生成する
 
