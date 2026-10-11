@@ -58,7 +58,6 @@ for ($i = 1; $i -le $totalCount; $i++) {
 
         # 次のPowerShellプロセスを起動する前に80ミリ秒待機
         Start-Sleep -Milliseconds 50
-
     }
     catch {
         $startFailedCount++

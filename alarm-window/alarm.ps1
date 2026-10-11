@@ -62,6 +62,9 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+# プロセス起動時刻
+$Timestamp = [System.DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss')
+
 # ============================================================
 # 共通ヘルパー関数
 # ============================================================
@@ -277,11 +280,14 @@ function Start-AlarmServer {
 # ============================================================
 
 if (-not $ServerMode) {
+    # 送信メッセージ（起動時タイムスタンプを連結）
+    $outMessage = '{0}  {1}' -f $Timestamp, $Message
+
     # 既存サーバーがあれば、まず直接送信する。
     for ($attempt = 1; $attempt -le 3; $attempt++) {
         $sent = Send-AlarmMessage `
             -PipeName $PipeName `
-            -Text $Message `
+            -Text $outMessage `
             -TimeoutMilliseconds 100
 
         if ($sent) {
@@ -294,7 +300,7 @@ if (-not $ServerMode) {
     # 既存サーバーがなければ、非表示のサーバーモードを起動する。
     try {
         Start-AlarmServer `
-            -AlarmMessage $Message `
+            -AlarmMessage $outMessage `
             -SoundTimeout $SoundTimeoutMin `
             -FlashInterval $FlashIntervalMs
     }
@@ -719,28 +725,23 @@ function Add-AlarmToWindow {
         [AllowEmptyString()]
         [string]$AlarmMessage
     )
- 
-    $cleanMessage = Format-AlarmMessage $AlarmMessage
- 
-    $timestamp =
-    [System.DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss')
- 
-    $line = '{0}  {1}{2}' -f `
-        $timestamp,
-    $cleanMessage,
-    [System.Environment]::NewLine
- 
+
+    $line = if ($AlarmMessage -match '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(  |$)') {
+        '{0}{1}' -f $AlarmMessage, [System.Environment]::NewLine
+    }
+    else {
+        $timestamp = [System.DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss')
+        '{0}  {1}{2}' -f $timestamp, (Format-AlarmMessage $AlarmMessage), [System.Environment]::NewLine
+    }
+
     $script:alarmTextBox.AppendText($line)
-    $script:alarmTextBox.SelectionStart =
-    $script:alarmTextBox.TextLength
- 
+    $script:alarmTextBox.SelectionStart = $script:alarmTextBox.TextLength
     $script:alarmTextBox.SelectionLength = 0
     $script:alarmTextBox.ScrollToCaret()
- 
+
     # 最後にアラームを受信した時刻を更新
-    $script:shared.LastAlarmUtcTicks =
-    [System.DateTime]::UtcNow.Ticks
- 
+    $script:shared.LastAlarmUtcTicks = [System.DateTime]::UtcNow.Ticks
+
     # 音声ループ再生を開始
     Start-SoundPlayback
 }
