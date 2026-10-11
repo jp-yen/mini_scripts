@@ -44,11 +44,11 @@ function setupContextMenu() {
 setupContextMenu();
 
 /* ==========================================================================
-   2. ドメイン判定 (完全ホワイトリスト方式 & Copilotファミリー相互認識)
+   2. ドメイン判定 (完全ホワイトリスト方式 & 関連ドメイン相互認識)
    ========================================================================== */
 
 /**
- * ドメインの一致判定（サブドメイン対応 & 関連サービス連動）
+ * ドメインの一致判定（完全一致・サブドメイン・ワイルドカード対応）
  */
 function isDomainMatched(hostname, domainPattern) {
   if (!hostname || !domainPattern) return false;
@@ -57,14 +57,17 @@ function isDomainMatched(hostname, domainPattern) {
   p = p.replace(/^[a-zA-Z]+:\/\//, '').split('/')[0].split(':')[0];
   if (!p) return false;
 
-  // 1. 完全一致またはサブドメイン一致
-  if (h === p || h.endsWith('.' + p)) return true;
+  // ワイルドカード指定 (*.example.com など) への対応
+  if (p.includes('*')) {
+    const escaped = p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+    try {
+      const regex = new RegExp(`^${escaped}$`, 'i');
+      if (regex.test(h)) return true;
+    } catch (e) {}
+  }
 
-  // 2. Copilot / Bing サービスファミリーの相互認識
-  const copilotFamily = ['copilot.microsoft.com', 'bing.com', 'edgeservices.bing.com', 'cloud.microsoft'];
-  const pIsCopilot = copilotFamily.some(f => p === f || p.endsWith('.' + f));
-  const hIsCopilot = copilotFamily.some(f => h === f || h.endsWith('.' + f));
-  return pIsCopilot && hIsCopilot;
+  // 完全一致またはサブドメイン一致
+  return (h === p || h.endsWith('.' + p));
 }
 
 /**
@@ -179,45 +182,105 @@ extApi.runtime.onStartup.addListener(() => {
 });
 
 /* ==========================================================================
-   5. 特権クリップボード書き込み (Chrome Service Worker 対応)
+/* ==========================================================================
+   5. 特権クリップボード書き込み (Offscreen Document & Service Worker 対応)
    ========================================================================== */
 
 /**
- * Chrome MV3 Service Worker では DOM や navigator.clipboard が制限されるため、
- * 送信元タブに対して scripting.executeScript を実行して確実に書き込む
+ * Offscreen Document の作成と特権書き込み (Chrome MV3 公式推奨)
+ */
+async function writeClipboardViaOffscreen(text) {
+  if (!chrome.offscreen) return false;
+
+  const offscreenUrl = 'offscreen.html';
+  // 既存の Offscreen Document があるか確認
+  try {
+    if (chrome.runtime.getContexts) {
+      const existing = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+        documentUrls: [chrome.runtime.getURL(offscreenUrl)]
+      });
+      if (!existing || existing.length === 0) {
+        await chrome.offscreen.createDocument({
+          url: offscreenUrl,
+          reasons: ['CLIPBOARD'],
+          justification: 'Write copied code block to clipboard'
+        });
+      }
+    } else {
+      // getContexts 未対応環境のフォールバック
+      await chrome.offscreen.createDocument({
+        url: offscreenUrl,
+        reasons: ['CLIPBOARD'],
+        justification: 'Write copied code block to clipboard'
+      }).catch(() => {});
+    }
+
+    // Offscreen Document に書き込みメッセージを送信
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'offscreen_write_clipboard', text }, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve(null);
+        } else {
+          resolve(response);
+        }
+      });
+    });
+
+    return !!(res && res.status === 'success');
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * Content Script からの特権クリップボード書き込み要求ハンドラ
  */
 extApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message && message.action === "bg_write_clipboard") {
     const textToCopy = message.text || "";
     const targetTabId = (sender.tab && sender.tab.id) ? sender.tab.id : null;
+    const targetFrameId = sender.frameId;
 
-    if (targetTabId) {
-      copyTextToClipboard(textToCopy, targetTabId);
-      sendResponse({ status: "success" });
-    } else {
-      // 送信元タブが不明な場合はアクティブタブを取得して書き込み
-      extApi.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+    // 非同期で処理を実行
+    (async () => {
+      // 1. Offscreen Document による特権書き込みを最優先実行 (Chrome MV3)
+      const offscreenOk = await writeClipboardViaOffscreen(textToCopy);
+      if (offscreenOk) {
+        sendResponse({ status: "success" });
+        return;
+      }
+
+      // 2. scripting.executeScript によるフォールバック書き込み
+      if (targetTabId) {
+        copyTextToClipboard(textToCopy, targetTabId, targetFrameId);
+        sendResponse({ status: "success" });
+      } else {
+        const tabs = await extApi.tabs.query({ active: true, currentWindow: true }).catch(() => []);
         if (tabs && tabs[0] && tabs[0].id) {
           copyTextToClipboard(textToCopy, tabs[0].id);
           sendResponse({ status: "success" });
         } else {
           sendResponse({ status: "error", message: "No active tab" });
         }
-      }).catch(() => {
-        sendResponse({ status: "error", message: "Copy failed" });
-      });
-    }
-    return true; // 非同期レスポンス
+      }
+    })();
+
+    return true; // 非同期レスポンス維持
   }
 });
 
 /**
- * タブコンテキストでのスクリプト実行によるクリップボード書き込み (Chrome で最も確実な方式)
+ * タブコンテキストでのスクリプト実行によるクリップボード書き込み (フォールバック)
  */
-function copyTextToClipboard(text, tabId) {
+function copyTextToClipboard(text, tabId, frameId) {
   if (!tabId || !extApi.scripting) return;
+  const target = { tabId };
+  if (typeof frameId === 'number') {
+    target.frameIds = [frameId];
+  }
   extApi.scripting.executeScript({
-    target: { tabId },
+    target,
     func: (textToCopy) => {
       try {
         const textarea = document.createElement("textarea");
@@ -226,6 +289,7 @@ function copyTextToClipboard(text, tabId) {
         textarea.style.position = "fixed";
         textarea.style.left = "-9999px";
         document.body.appendChild(textarea);
+        textarea.focus();
         textarea.select();
         document.execCommand("copy");
         document.body.removeChild(textarea);
@@ -236,7 +300,29 @@ function copyTextToClipboard(text, tabId) {
       }
     },
     args: [text]
-  }).catch(() => {});
+  }).catch(() => {
+    // frameId 指定で失敗した場合はタブ全体でフォールバック実行
+    if (target.frameIds) {
+      extApi.scripting.executeScript({
+        target: { tabId },
+        func: (textToCopy) => {
+          try {
+            const textarea = document.createElement("textarea");
+            textarea.value = textToCopy;
+            textarea.setAttribute("readonly", "");
+            textarea.style.position = "fixed";
+            textarea.style.left = "-9999px";
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+          } catch (e) {}
+        },
+        args: [text]
+      }).catch(() => {});
+    }
+  });
 }
 
 /**
@@ -258,10 +344,10 @@ function cleanCodeString(text, options = {}) {
     }
   }
 
-  const isCopilotInterleaved = (loneCount >= 2) || (loneCount >= 1 && nonEmpty <= 4);
+  const isInterleavedLineNumbers = (nonEmpty <= 4 && loneCount >= 1) || (nonEmpty > 4 && loneCount >= 2 && (loneCount / nonEmpty >= 0.25));
   let processed = [];
 
-  if (isCopilotInterleaved) {
+  if (isInterleavedLineNumbers) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
@@ -277,7 +363,7 @@ function cleanCodeString(text, options = {}) {
     processed = lines;
   }
 
-  const looksLikeCode = isCopilotInterleaved ||
+  const looksLikeCode = isInterleavedLineNumbers ||
     /^\s*\d+[\s:\|\t]+/m.test(normalized) ||
     /^\s*\[\d+\]/m.test(normalized) ||
     /\b(import|def|function|const|let|var|class|return|export)\b/.test(normalized);

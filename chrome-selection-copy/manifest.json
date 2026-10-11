@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Selection Clean Copy (行番号削除コピー)",
-  "version": "1.1.0",
-  "description": "Copilotやターミナル出力から行番号・プロンプトを除去し、Ctrl+C禁止環境でも確実にコピーできるChrome拡張機能",
+  "version": "1.1.1",
+  "description": "Webページのコード表示やターミナル出力から行番号を除去し、Ctrl+C禁止環境でも確実にコピーできるChrome拡張機能",
   "permissions": [
     "tabs",
     "activeTab",
@@ -10,7 +10,8 @@
     "clipboardWrite",
     "storage",
     "scripting",
-    "alarms"
+    "alarms",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"

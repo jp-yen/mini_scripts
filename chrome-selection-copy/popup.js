@@ -17,7 +17,7 @@ const extApi = typeof browser !== 'undefined' ? browser : chrome;
 
 const defaultSettings = {
   removeLineNumbers: true,
-  removePromptPrefixes: true,
+  removePromptPrefixes: false,
   showFloatingButton: true,
   interceptCtrlC: true,
   enabledDomains: []
@@ -31,11 +31,12 @@ let enabledDomains = [];
 const dom = {};
 
 /* ==========================================================================
-   2. ドメイン判定 (完全ホワイトリスト方式 & Copilotファミリー相互認識)
+   2. ドメイン判定 (完全ホワイトリスト方式 & 関連ドメイン相互認識)
    ========================================================================== */
 
 /**
- * ドメインの一致判定（サブドメイン対応 & 関連サービス連動）
+/**
+ * ドメインの一致判定（完全一致・サブドメイン・ワイルドカード対応）
  */
 function isDomainMatched(hostname, domainPattern) {
   if (!hostname || !domainPattern) return false;
@@ -44,14 +45,17 @@ function isDomainMatched(hostname, domainPattern) {
   p = p.replace(/^[a-zA-Z]+:\/\//, '').split('/')[0].split(':')[0];
   if (!p) return false;
 
-  // 1. 完全一致またはサブドメイン一致
-  if (h === p || h.endsWith('.' + p)) return true;
+  // ワイルドカード指定 (*.example.com など) への対応
+  if (p.includes('*')) {
+    const escaped = p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+    try {
+      const regex = new RegExp(`^${escaped}$`, 'i');
+      if (regex.test(h)) return true;
+    } catch (e) {}
+  }
 
-  // 2. Copilot / Bing サービスファミリーの相互認識
-  const copilotFamily = ['copilot.microsoft.com', 'bing.com', 'edgeservices.bing.com', 'cloud.microsoft'];
-  const pIsCopilot = copilotFamily.some(f => p === f || p.endsWith('.' + f));
-  const hIsCopilot = copilotFamily.some(f => h === f || h.endsWith('.' + f));
-  return pIsCopilot && hIsCopilot;
+  // 完全一致またはサブドメイン一致
+  return (h === p || h.endsWith('.' + p));
 }
 
 /**
@@ -267,7 +271,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (storageArea) {
     storageArea.get(defaultSettings, (saved) => {
       dom.lineNumCheckbox.checked = (saved.removeLineNumbers !== undefined) ? saved.removeLineNumbers : true;
-      dom.promptsCheckbox.checked = (saved.removePromptPrefixes !== undefined) ? saved.removePromptPrefixes : true;
+      dom.promptsCheckbox.checked = (saved.removePromptPrefixes !== undefined) ? saved.removePromptPrefixes : false;
       dom.floatBtnCheckbox.checked = (saved.showFloatingButton !== undefined) ? saved.showFloatingButton : true;
       dom.ctrlCCheckbox.checked = (saved.interceptCtrlC !== undefined) ? saved.interceptCtrlC : true;
       
