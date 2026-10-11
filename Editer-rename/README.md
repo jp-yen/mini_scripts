@@ -6,61 +6,64 @@ Vim、GVim、EmEditorなど、普段使用しているエディターの検索�
 
 ## 動作環境
 
-- Windows 10またはWindows 11
-- Windows PowerShell 5.1
-- .NET FrameworkおよびWindows Forms
-- Vim、GVim、EmEditorなどの任意のテキストエディター
+本ツールは **C#版（.exe）** と **PowerShell版（.ps1）** の2つの実装を提供しています。お使いの環境や運用ポリシーに合わせて選択できます。
 
-PowerShell 7ではなく、Windows標準のWindows PowerShell 5.1を使用します。
+- Windows 10 または Windows 11
+- .NET Framework 4.0 以上（Windows 10/11 標準搭載）
+- Windows PowerShell 5.1（PowerShell版使用時のみ）
+- Vim、GVim、EmEditor などの任意のテキストエディター
+
+> [!TIP]
+> **どちらを使うべきか？**
+> - **C#版（推奨）**: 実行ポリシー（`ExecutionPolicy`）の制限がある環境でも単体で確実に動作します。コンパイル済み exe が同梱されているほか、Windows 標準の `csc.exe` で追加ツールなしで再ビルド可能です。
+> - **PowerShell版**: スクリプトのまま中身を確認・編集したい環境で手軽に利用できます。
 
 ## ファイル構成
 
-同じフォルダーに次のファイルを保存します。
+本リポジトリには、C#版とPowerShell版の両方の関連ファイルが含まれています。
 
 ```text
 EditorRenameTool\
-├─ EditorRenameTool.ps1
-├─ Install.ps1
-├─ Uninstall.ps1
-└─ README.md
+├─ 【C#版（推奨 / exe実行版）】
+│   ├─ EditorRenameTool.cs    # C# ソースコード
+│   ├─ EditorRenameTool.exe   # コンパイル済み実行ファイル本体
+│   ├─ build.bat              # Windows標準のcsc.exeによるビルドバッチ
+│   ├─ Install.bat            # 「送る」メニューへのショートカット登録バッチ
+│   └─ Uninstall.bat          # ショートカット解除バッチ
+│
+├─ 【PowerShell版（ps1スクリプト版）】
+│   ├─ EditorRenameTool.ps1   # PowerShellスクリプト本体
+│   ├─ Install.ps1            # インストール用PowerShellスクリプト
+│   └─ Uninstall.ps1          # アンインストール用PowerShellスクリプト
+│
+└─ README.md                  # 本ドキュメント
 ```
 
 ## インストール前の確認
 
-PowerShellスクリプトは、UTF-8 with BOMで保存することを推奨します。
+### C#版を使用する場合
+- 同梱の `EditorRenameTool.exe` をそのまま利用できます。
+- ソースコードから自分でビルドしたい場合は、`build.bat` をダブルクリックするだけで、Windows標準搭載の `csc.exe` を使って即座にビルドされます（Visual Studio等の追加ツールは不要です）。
 
-各ファイルの拡張子が誤って `.txt` になっていないことも確認してください。
-
-正しい例:
-
-```text
-EditorRenameTool.ps1
-Install.ps1
-Uninstall.ps1
-```
-
-誤った例:
-
-```text
-EditorRenameTool.ps1.txt
-Install.ps1.txt
-Uninstall.ps1.txt
-```
-
-エクスプローラーで拡張子を表示するには、次の設定を有効にします。
-
-```text
-エクスプローラー
-  → 表示
-    → 表示
-      → ファイル名拡張子
-```
+### PowerShell版を使用する場合
+- PowerShellスクリプト（`.ps1`）は、UTF-8 with BOMで保存することを推奨します。
+- 各スクリプトの拡張子が誤って `.txt`（例: `EditorRenameTool.ps1.txt`）になっていないことを確認してください。
 
 ## インストール
 
-`Install.ps1`、`EditorRenameTool.ps1`、`Uninstall.ps1`を同じフォルダーへ保存します。
+いずれの版も管理者権限は不要です。
 
-その後、`Install.ps1`を右クリックし、次を選択します。
+### 1. C#版のインストール（推奨）
+
+`Install.bat` をダブルクリックして実行します。
+
+- 「送る（SendTo）」メニューに「エディターで名前変更または移動」ショートカットが作成されます。
+- `EditorRenameTool.exe` が未ビルドの場合は自動で `build.bat` を呼び出し、コンパイル完了後に登録されます。
+- PowerShellスクリプトの実行制限がある環境でも問題なく動作します。
+
+### 2. PowerShell版のインストール
+
+`Install.ps1` を右クリックし、次を選択します。
 
 ```text
 PowerShellで実行
@@ -72,27 +75,7 @@ PowerShellで実行
 powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\Install.ps1
 ```
 
-インストールは管理者権限を必要としません。
-
-本体は次の場所へコピーされます。
-
-```text
-%LOCALAPPDATA%\EditorRenameTool\
-```
-
-また、次の2つのショートカットが作成されます。
-
-### 「送る」メニュー
-
-```text
-エディターで名前変更または移動
-```
-
-### スタートメニュー
-
-```text
-Editor Rename Tool
-```
+PowerShell版では、スクリプト本体が `%LOCALAPPDATA%\EditorRenameTool\` へコピーされ、「送る」メニューおよびスタートメニューにショートカットが作成されます。
 
 ## エディターの登録
 
@@ -513,6 +496,13 @@ EditorRenameTool\
 
 ## アンインストール
 
+### C#版のアンインストール
+
+`Uninstall.bat` をダブルクリックして実行します。
+「送る」メニューからショートカットが削除されます。
+
+### PowerShell版のアンインストール
+
 `Uninstall.ps1` を右クリックし、次を選択します。
 
 ```text
@@ -525,7 +515,7 @@ PowerShellで実行
 powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\Uninstall.ps1
 ```
 
-アンインストール時に、設定と履歴を削除するか確認ダイアログが表示されます。
+PowerShell版のアンインストール時には、設定と履歴を削除するか確認ダイアログが表示されます。
 
 ### ［はい］
 
