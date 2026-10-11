@@ -1,7 +1,7 @@
 ﻿# mini_scripts
 
 
-- alarm-window (PowerShell)<br />
+- alarm-window (PowerShell Win)<br />
   アラームウィンドウを表示。スクリプトと同じディレクトリにある a.wav を連続再生 (最後のアラームから 10分で停止)
 ```powershell
   .\alarm.ps1 "メッセージ"
@@ -9,11 +9,20 @@
   で、メッセージをウィンドウに表示
   複数回発生した場合でも、一つのウィンドウですべてのメッセージを表示
 
+- Editer-rename (C# & PowerShell Win)<br />
+ファイル名の変更をエディタで行うツール。(C# 版と、PowerShell 版があり)
+右クリックの送るから「Editor Rename Tool」を選択するとエディターとGUIが起動、エディターでファイル名を変更 & 保存し、GUIの「編集完了」をクリック(※)してリネームを実行します。
+EditorRenameTool.exe を直接起動すれば履歴から Undo もできます。<br />
+※タブ式エディタが増えて、エディタの終了で編集の終了を検知できないためボタンを押す必要があります。
+
 - fake_user.py (py)<br />
   AD のユーザーを PowerShell で登録できる形式 (CSV) でランダムに生成する
 
-- firefox-selection-copy (Firefoxo)<br />
-  コピーが禁止されている文章を HTML ソースから再構築しコピー
+- chrome-selection-copy (Chrome 拡張機能)<br />
+  コピーが禁止されている文章を強引にコピー
+
+- firefox-selection-copy (Firefox 拡張機能)<br />
+  コピーが禁止されている文章を強引にコピー
 
 - font-selector (.Net10,WebView2 Win)<br />
   条件に一致するフォントを表示するツール
