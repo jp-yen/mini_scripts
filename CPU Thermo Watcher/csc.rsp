@@ -1,0 +1,16 @@
+/target:winexe
+/out:CpuThermoWatcher.exe
+/win32manifest:app.manifest
+/platform:x64
+/warn:4
+/optimize+
+/r:System.dll
+/r:System.Core.dll
+/r:System.Drawing.dll
+/r:System.Windows.Forms.dll
+/r:System.Windows.Forms.DataVisualization.dll
+/r:System.Management.dll
+/r:System.Xml.dll
+/r:System.Xml.Linq.dll
+/r:OpenHardwareMonitorLib.dll
+/recurse:src\*.cs

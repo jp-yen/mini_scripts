@@ -1,0 +1,8 @@
+# External Dependencies (automatically downloaded via setup_lib.ps1 / build.bat)
+OpenHardwareMonitorLib.dll
+ohm.zip
+
+# Build Outputs
+*.exe
+*.pdb
+CpuThermoWatcher.old*.exe

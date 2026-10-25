@@ -1,0 +1,13 @@
+﻿{
+  "UpdateIntervalMs": 2000,
+  "WarningThresholdCelsius": 95.0,
+  "WarningThresholdIGpuCelsius": 85.0,
+  "WarningThresholdDGpuCelsius": 85.0,
+  "ShowCpuInTray": true,
+  "ShowIGpuInTray": true,
+  "ShowDGpuInTray": true,
+  "EnabledTrayDevices": "CPU,iGPU,dGPU:0",
+  "EnableEventLogging": true,
+  "EventLogIntervalSeconds": 60,
+  "TextColorMode": "Auto"
+}
