@@ -8,7 +8,7 @@
 using System;
 using System.Collections.Generic;
 using System.Management;
-using OpenHardwareMonitor.Hardware;
+using LibreHardwareMonitor.Hardware;
 
 namespace CpuThermoWatcher
 {
@@ -139,14 +139,14 @@ namespace CpuThermoWatcher
             try
             {
                 _computer = new Computer();
-                _computer.CPUEnabled = true;
-                _computer.GPUEnabled = true; // GPU (NVIDIA / AMD / Intel) の温度取得を有効化
+                _computer.IsCpuEnabled = true;
+                _computer.IsGpuEnabled = true; // GPU (NVIDIA / AMD / Intel) の温度取得を有効化
                 _computer.Open();
             }
             catch (Exception ex)
             {
                 _computer = null;
-                System.Diagnostics.Debug.WriteLine("Failed to initialize OpenHardwareMonitor: " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Failed to initialize LibreHardwareMonitor: " + ex.Message);
             }
         }
 
@@ -166,20 +166,28 @@ namespace CpuThermoWatcher
                 return;
             }
 
+            bool isCpuWithRadeon = rawHardwareName.IndexOf("with Radeon Graphics", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                   rawHardwareName.IndexOf("GPU", StringComparison.OrdinalIgnoreCase) < 0;
+
             // 1. iGPU (内蔵 GPU) 判定
-            if (rawHardwareName.IndexOf("iGPU", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            if (!isCpuWithRadeon && (
+                rawHardwareName.IndexOf("iGPU", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 rawHardwareName.IndexOf("内蔵", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 (!string.IsNullOrEmpty(sensorLabel) && sensorLabel.IndexOf("iGPU", StringComparison.OrdinalIgnoreCase) >= 0) ||
                 rawHardwareName.IndexOf("Radeon 610M", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                rawHardwareName.IndexOf("Radeon(TM) 610M", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 rawHardwareName.IndexOf("Radeon 780M", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                rawHardwareName.IndexOf("Radeon(TM) 780M", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 rawHardwareName.IndexOf("Radeon 680M", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                rawHardwareName.IndexOf("Radeon(TM) 680M", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 rawHardwareName.IndexOf("Radeon Graphics", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                rawHardwareName.IndexOf("Radeon(TM) Graphics", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 rawHardwareName.IndexOf("Intel(R) HD", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 rawHardwareName.IndexOf("Intel(R) UHD", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 rawHardwareName.IndexOf("Intel(R) Iris", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 rawHardwareName.IndexOf("Intel HD", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 rawHardwareName.IndexOf("Intel UHD", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                rawHardwareName.IndexOf("Intel Iris", StringComparison.OrdinalIgnoreCase) >= 0)
+                rawHardwareName.IndexOf("Intel Iris", StringComparison.OrdinalIgnoreCase) >= 0))
             {
                 category = DeviceCategory.IGpu;
                 deviceId = "iGPU";
@@ -253,7 +261,7 @@ namespace CpuThermoWatcher
         {
             CpuTemperatureSnapshot snapshot = new CpuTemperatureSnapshot();
 
-            // 1. OpenHardwareMonitor によるダイレクト計測 (CPU & GPU)
+            // 1. LibreHardwareMonitor によるダイレクト計測 (CPU & GPU)
             string detectedCpuName = string.Empty;
             int dgpuCounter = 0;
             if (_computer != null)
@@ -262,14 +270,14 @@ namespace CpuThermoWatcher
                 {
                     foreach (IHardware hardware in _computer.Hardware)
                     {
-                        if (hardware.HardwareType == HardwareType.CPU)
+                        if (hardware.HardwareType == HardwareType.Cpu)
                         {
                             hardware.Update();
                             detectedCpuName = hardware.Name;
 
                             foreach (ISensor sensor in hardware.Sensors)
                             {
-                                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue)
+                                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
                                 {
                                     AddUniqueSensor(snapshot.Sensors, new TemperatureReading(
                                         hardware.Name,
@@ -288,7 +296,7 @@ namespace CpuThermoWatcher
                                 subHardware.Update();
                                 foreach (ISensor sensor in subHardware.Sensors)
                                 {
-                                    if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue)
+                                    if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
                                     {
                                         AddUniqueSensor(snapshot.Sensors, new TemperatureReading(
                                             subHardware.Name,
@@ -304,8 +312,8 @@ namespace CpuThermoWatcher
                             }
                         }
                         else if (hardware.HardwareType == HardwareType.GpuNvidia ||
-                                 hardware.HardwareType == HardwareType.GpuAti ||
-                                 hardware.HardwareType == (HardwareType)4) // GpuIntel
+                                 hardware.HardwareType == HardwareType.GpuAmd ||
+                                 hardware.HardwareType == HardwareType.GpuIntel)
                         {
                             hardware.Update();
 
@@ -321,7 +329,7 @@ namespace CpuThermoWatcher
 
                             foreach (ISensor sensor in hardware.Sensors)
                             {
-                                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue)
+                                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
                                 {
                                     AddUniqueSensor(snapshot.Sensors, new TemperatureReading(
                                         devName,
@@ -340,7 +348,7 @@ namespace CpuThermoWatcher
                                 subHardware.Update();
                                 foreach (ISensor sensor in subHardware.Sensors)
                                 {
-                                    if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue)
+                                    if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
                                     {
                                         AddUniqueSensor(snapshot.Sensors, new TemperatureReading(
                                             devName,
@@ -359,7 +367,7 @@ namespace CpuThermoWatcher
                 }
                 catch (Exception ex)
                 {
-                    snapshot.Message = "OHM read error: " + ex.Message;
+                    snapshot.Message = "LHM read error: " + ex.Message;
                 }
             }
 

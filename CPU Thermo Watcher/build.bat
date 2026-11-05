@@ -17,16 +17,16 @@ if not exist "%CSC%" (
 
 echo [1/3] Compiler found: %CSC%
 
-if not exist "OpenHardwareMonitorLib.dll" (
-    echo [2/3] OpenHardwareMonitorLib.dll not found. Downloading via PowerShell...
+if not exist "LibreHardwareMonitorLib.dll" (
+    echo [2/3] LibreHardwareMonitorLib.dll not found. Downloading via PowerShell...
     powershell -ExecutionPolicy Bypass -File .\setup_lib.ps1
 )
 
-if not exist "OpenHardwareMonitorLib.dll" (
-    echo [ERROR] OpenHardwareMonitorLib.dll could not be obtained.
+if not exist "LibreHardwareMonitorLib.dll" (
+    echo [ERROR] LibreHardwareMonitorLib.dll could not be obtained.
     goto :FAIL
 )
-echo [2/3] Dependency check: OpenHardwareMonitorLib.dll OK
+echo [2/3] Dependency check: LibreHardwareMonitorLib.dll OK
 
 set "BAK=CpuThermoWatcher.old_%RANDOM%.exe"
 if exist "CpuThermoWatcher.exe" (

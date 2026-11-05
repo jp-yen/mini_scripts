@@ -88,16 +88,16 @@ namespace CpuThermoWatcher
             }
         }
 
-        public void LogSnapshot(CpuTemperatureSnapshot snapshot, Settings settings)
+        public bool LogSnapshot(CpuTemperatureSnapshot snapshot, Settings settings)
         {
             if (snapshot == null || !snapshot.Success || snapshot.Sensors.Count == 0)
             {
-                return;
+                return false;
             }
 
             if (!settings.EnableEventLogging)
             {
-                return;
+                return false;
             }
 
             DateTime now = DateTime.Now;
@@ -126,21 +126,24 @@ namespace CpuThermoWatcher
             // 1. 高温警告時のログ出力（最低30秒間隔）
             if (isOverThreshold && (now - _lastWarningLogTime).TotalSeconds >= 30)
             {
-                WriteLog(snapshot, isWarning: true, settings: settings);
+                bool written = WriteLog(snapshot, isWarning: true, settings: settings);
                 _lastWarningLogTime = now;
                 _lastRegularLogTime = now;
-                return;
+                return written;
             }
 
             // 2. 定期サンプリングログ出力
             if ((now - _lastRegularLogTime).TotalSeconds >= settings.EventLogIntervalSeconds)
             {
-                WriteLog(snapshot, isWarning: false, settings: settings);
+                bool written = WriteLog(snapshot, isWarning: false, settings: settings);
                 _lastRegularLogTime = now;
+                return written;
             }
+
+            return false;
         }
 
-        private static void WriteLog(CpuTemperatureSnapshot snapshot, bool isWarning, Settings settings)
+        private static bool WriteLog(CpuTemperatureSnapshot snapshot, bool isWarning, Settings settings)
         {
             try
             {
@@ -234,10 +237,12 @@ namespace CpuThermoWatcher
                     log.Source = SourceName;
                     log.WriteEntry(message, entryType, eventId, category);
                 }
+                return true;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine("EventLog.WriteEntry failed: " + ex.Message);
+                return false;
             }
         }
 

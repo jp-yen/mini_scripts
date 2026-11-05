@@ -12,5 +12,5 @@
 /r:System.Management.dll
 /r:System.Xml.dll
 /r:System.Xml.Linq.dll
-/r:OpenHardwareMonitorLib.dll
+/r:LibreHardwareMonitorLib.dll
 /recurse:src\*.cs

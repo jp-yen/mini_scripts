@@ -1,8 +1,15 @@
 # External Dependencies (automatically downloaded via setup_lib.ps1 / build.bat)
-OpenHardwareMonitorLib.dll
-ohm.zip
+LibreHardwareMonitorLib.dll
+lhm.zip
 
-# Build Outputs
+# SQLite Database & Runtime Files
+*.db
+*.db-wal
+*.db-shm
+events_dump.json
+
+# Build & Runtime Outputs (Ring0 kernel driver extracted at runtime)
 *.exe
 *.pdb
+*.sys
 CpuThermoWatcher.old*.exe

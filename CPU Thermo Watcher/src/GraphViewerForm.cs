@@ -18,7 +18,13 @@ namespace CpuThermoWatcher
     {
         private Chart _chart;
         private ComboBox _cmbRange;
+        private DateTimePicker _dtpStart;
+        private DateTimePicker _dtpEnd;
+        private Label _lblTilde;
+        private Button _btnApplyCustom;
+        private CheckBox _chkAutoRefresh;
         private Label _lblSummary;
+        private StripLine _thresholdStripLine;
         private float _threshold;
         private float _dpiScale = 1.0f;
         private ToolTip _chartToolTip;
@@ -34,7 +40,7 @@ namespace CpuThermoWatcher
 
         private void InitializeComponent()
         {
-            this.Text = "CPU / iGPU / dGPU 温度推移グラフ (Windows イベントログ履歴)";
+            this.Text = "CPU / iGPU / dGPU 温度推移グラフ (SQLite 履歴)";
             this.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Icon = SystemIcons.Application;
@@ -46,8 +52,8 @@ namespace CpuThermoWatcher
             }
             if (_dpiScale < 1.0f) _dpiScale = 1.0f;
 
-            this.ClientSize = new Size((int)(920 * _dpiScale), (int)(600 * _dpiScale));
-            this.MinimumSize = new Size((int)(680 * _dpiScale), (int)(440 * _dpiScale));
+            this.ClientSize = new Size((int)(1000 * _dpiScale), (int)(620 * _dpiScale));
+            this.MinimumSize = new Size((int)(720 * _dpiScale), (int)(460 * _dpiScale));
 
             int ctlHeight = (int)Math.Round(this.Font.Height * 1.35f);
             if (ctlHeight < (int)(24 * _dpiScale)) ctlHeight = (int)(24 * _dpiScale);
@@ -57,7 +63,7 @@ namespace CpuThermoWatcher
             toolPanel.Dock = DockStyle.Top;
             toolPanel.AutoSize = true;
             toolPanel.FlowDirection = FlowDirection.LeftToRight;
-            toolPanel.WrapContents = false;
+            toolPanel.WrapContents = true;
             toolPanel.Padding = new Padding((int)(14 * _dpiScale), (int)(8 * _dpiScale), (int)(14 * _dpiScale), (int)(8 * _dpiScale));
 
             Label lblRange = new Label();
@@ -67,11 +73,44 @@ namespace CpuThermoWatcher
 
             _cmbRange = new ComboBox();
             _cmbRange.DropDownStyle = ComboBoxStyle.DropDownList;
-            _cmbRange.Items.AddRange(new object[] { "直近 1 時間", "直近 6 時間", "直近 24 時間", "全期間" });
+            _cmbRange.Items.AddRange(new object[] { "直近 1 時間", "直近 6 時間", "直近 24 時間", "直近 7 日間", "全期間", "カスタム指定..." });
             _cmbRange.SelectedIndex = 0; // 直近1時間
-            _cmbRange.Width = (int)(160 * _dpiScale);
-            _cmbRange.Margin = new Padding(0, (int)(1 * _dpiScale), (int)(14 * _dpiScale), 0);
-            _cmbRange.SelectedIndexChanged += delegate { LoadData(); };
+            _cmbRange.Width = (int)(150 * _dpiScale);
+            _cmbRange.Margin = new Padding(0, (int)(1 * _dpiScale), (int)(10 * _dpiScale), 0);
+            _cmbRange.SelectedIndexChanged += OnRangeChanged;
+
+            // カスタム日時指定コントロール群
+            _dtpStart = new DateTimePicker();
+            _dtpStart.Format = DateTimePickerFormat.Custom;
+            _dtpStart.CustomFormat = "yyyy/MM/dd HH:mm";
+            _dtpStart.Width = (int)(150 * _dpiScale);
+            _dtpStart.Value = DateTime.Now.AddHours(-1);
+            _dtpStart.Visible = false;
+            _dtpStart.Margin = new Padding(0, (int)(1 * _dpiScale), (int)(4 * _dpiScale), 0);
+
+            _lblTilde = new Label();
+            _lblTilde.Text = "～";
+            _lblTilde.AutoSize = true;
+            _lblTilde.Visible = false;
+            _lblTilde.Margin = new Padding(0, (int)(4 * _dpiScale), (int)(4 * _dpiScale), 0);
+
+            _dtpEnd = new DateTimePicker();
+            _dtpEnd.Format = DateTimePickerFormat.Custom;
+            _dtpEnd.CustomFormat = "yyyy/MM/dd HH:mm";
+            _dtpEnd.Width = (int)(150 * _dpiScale);
+            _dtpEnd.Value = DateTime.Now;
+            _dtpEnd.Visible = false;
+            _dtpEnd.Margin = new Padding(0, (int)(1 * _dpiScale), (int)(6 * _dpiScale), 0);
+
+            _btnApplyCustom = new Button();
+            _btnApplyCustom.Text = "適用 (&A)";
+            _btnApplyCustom.AutoSize = true;
+            _btnApplyCustom.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            _btnApplyCustom.Padding = new Padding((int)(10 * _dpiScale), 0, (int)(10 * _dpiScale), 0);
+            _btnApplyCustom.Height = ctlHeight;
+            _btnApplyCustom.Visible = false;
+            _btnApplyCustom.Margin = new Padding(0, 0, (int)(12 * _dpiScale), 0);
+            _btnApplyCustom.Click += delegate { LoadData(); };
 
             Button btnRefresh = new Button();
             btnRefresh.Text = "再読み込み (&R)";
@@ -79,14 +118,27 @@ namespace CpuThermoWatcher
             btnRefresh.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             btnRefresh.Padding = new Padding((int)(12 * _dpiScale), 0, (int)(12 * _dpiScale), 0);
             btnRefresh.Height = ctlHeight;
-            btnRefresh.Margin = new Padding(0, 0, (int)(10 * _dpiScale), 0);
+            btnRefresh.Margin = new Padding(0, 0, (int)(12 * _dpiScale), 0);
             btnRefresh.Click += delegate { LoadData(); };
 
+            _chkAutoRefresh = new CheckBox();
+            _chkAutoRefresh.Text = "自動更新 (&U)";
+            _chkAutoRefresh.Checked = true;
+            _chkAutoRefresh.AutoSize = true;
+            _chkAutoRefresh.Margin = new Padding(0, (int)(4 * _dpiScale), (int)(14 * _dpiScale), 0);
+            _chkAutoRefresh.CheckedChanged += delegate
+            {
+                if (_chkAutoRefresh.Checked)
+                {
+                    LoadData();
+                }
+            };
+
             Button btnOpenEventVwr = new Button();
-            btnOpenEventVwr.Text = "イベントビューアーを開く";
+            btnOpenEventVwr.Text = "イベントビューアー";
             btnOpenEventVwr.AutoSize = true;
             btnOpenEventVwr.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            btnOpenEventVwr.Padding = new Padding((int)(12 * _dpiScale), 0, (int)(12 * _dpiScale), 0);
+            btnOpenEventVwr.Padding = new Padding((int)(10 * _dpiScale), 0, (int)(10 * _dpiScale), 0);
             btnOpenEventVwr.Height = ctlHeight;
             btnOpenEventVwr.Margin = new Padding(0, 0, 0, 0);
             btnOpenEventVwr.Click += delegate
@@ -96,7 +148,12 @@ namespace CpuThermoWatcher
 
             toolPanel.Controls.Add(lblRange);
             toolPanel.Controls.Add(_cmbRange);
+            toolPanel.Controls.Add(_dtpStart);
+            toolPanel.Controls.Add(_lblTilde);
+            toolPanel.Controls.Add(_dtpEnd);
+            toolPanel.Controls.Add(_btnApplyCustom);
             toolPanel.Controls.Add(btnRefresh);
+            toolPanel.Controls.Add(_chkAutoRefresh);
             toolPanel.Controls.Add(btnOpenEventVwr);
 
             // 下部ステータスバー
@@ -119,7 +176,7 @@ namespace CpuThermoWatcher
 
             ChartArea area = new ChartArea("Default");
             area.BackColor = Color.FromArgb(250, 252, 255);
-            area.BorderColor = Color.LightGray;
+            area.BorderColor = Color.Silver;
             area.BorderDashStyle = ChartDashStyle.Solid;
 
             // X軸（時刻）
@@ -134,25 +191,31 @@ namespace CpuThermoWatcher
             area.AxisY.TitleFont = new Font("Segoe UI", 9.0f, FontStyle.Bold);
             area.AxisY.LabelStyle.Font = new Font("Segoe UI", 8.5f);
             area.AxisY.LabelStyle.ForeColor = Color.FromArgb(60, 60, 60);
-            area.AxisY.MajorGrid.LineColor = Color.FromArgb(230, 235, 242);
-            area.AxisY.MajorGrid.LineDashStyle = ChartDashStyle.Dot;
+            area.AxisY.MajorGrid.Interval = 10;
+            area.AxisY.MajorGrid.LineColor = Color.Silver; // 枠線と同じ色 (Silver / グレー75%)
+            area.AxisY.MajorGrid.LineDashStyle = ChartDashStyle.Solid;
+            area.AxisY.MajorGrid.LineWidth = 1;
+            area.AxisY.MinorGrid.Enabled = true;
+            area.AxisY.MinorGrid.Interval = 5;
+            area.AxisY.MinorGrid.LineColor = Color.FromArgb(230, 235, 242);
+            area.AxisY.MinorGrid.LineDashStyle = ChartDashStyle.Dot;
             area.AxisY.LineColor = Color.Silver;
             area.AxisY.Interval = 5;
 
             // 警告温度しきい値ライン (赤破線)
-            StripLine strip = new StripLine();
-            strip.Interval = 0;
-            strip.IntervalOffset = _threshold;
-            strip.StripWidth = 0.0001;
-            strip.BorderColor = Color.FromArgb(220, 20, 20);
-            strip.BorderDashStyle = ChartDashStyle.Dash;
-            strip.BorderWidth = 1;
-            strip.Text = string.Format("CPU 警告閾値 ({0:F0}℃)", _threshold);
-            strip.TextAlignment = StringAlignment.Far;
-            strip.TextLineAlignment = StringAlignment.Near;
-            strip.ForeColor = Color.FromArgb(200, 20, 20);
-            strip.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
-            area.AxisY.StripLines.Add(strip);
+            _thresholdStripLine = new StripLine();
+            _thresholdStripLine.Interval = 0;
+            _thresholdStripLine.IntervalOffset = _threshold;
+            _thresholdStripLine.StripWidth = 0.0001;
+            _thresholdStripLine.BorderColor = Color.FromArgb(220, 20, 20);
+            _thresholdStripLine.BorderDashStyle = ChartDashStyle.Dash;
+            _thresholdStripLine.BorderWidth = 1;
+            _thresholdStripLine.Text = string.Format("CPU 警告閾値 ({0:F0}℃)", _threshold);
+            _thresholdStripLine.TextAlignment = StringAlignment.Far;
+            _thresholdStripLine.TextLineAlignment = StringAlignment.Near;
+            _thresholdStripLine.ForeColor = Color.FromArgb(200, 20, 20);
+            _thresholdStripLine.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
+            area.AxisY.StripLines.Add(_thresholdStripLine);
 
             _chart.ChartAreas.Add(area);
 
@@ -186,6 +249,20 @@ namespace CpuThermoWatcher
             this.Controls.Add(_chart);
             this.Controls.Add(bottomPanel);
             this.Controls.Add(toolPanel);
+        }
+
+        private void OnRangeChanged(object sender, EventArgs e)
+        {
+            bool isCustom = (_cmbRange.SelectedIndex == 5);
+            _dtpStart.Visible = isCustom;
+            _lblTilde.Visible = isCustom;
+            _dtpEnd.Visible = isCustom;
+            _btnApplyCustom.Visible = isCustom;
+
+            if (!isCustom)
+            {
+                LoadData();
+            }
         }
 
         private Series CreateSeries(string name, Color color, string legendText)
@@ -327,6 +404,26 @@ namespace CpuThermoWatcher
             }
         }
 
+        public void OnLogWritten(float threshold)
+        {
+            if (this.IsDisposed) return;
+
+            if (Math.Abs(_threshold - threshold) > 0.01f)
+            {
+                _threshold = threshold;
+                if (_thresholdStripLine != null)
+                {
+                    _thresholdStripLine.IntervalOffset = _threshold;
+                    _thresholdStripLine.Text = string.Format("CPU 警告閾値 ({0:F0}℃)", _threshold);
+                }
+            }
+
+            if (_chkAutoRefresh != null && _chkAutoRefresh.Checked)
+            {
+                LoadData();
+            }
+        }
+
         private void LoadData()
         {
             _lastHitSeries = null;
@@ -340,16 +437,33 @@ namespace CpuThermoWatcher
                 _chart.Cursor = Cursors.Default;
             }
 
-            TimeSpan? range = null;
+            DateTime? startTime = null;
+            DateTime? endTime = null;
+            DateTime now = DateTime.Now;
+
             switch (_cmbRange.SelectedIndex)
             {
-                case 0: range = TimeSpan.FromHours(1); break;
-                case 1: range = TimeSpan.FromHours(6); break;
-                case 2: range = TimeSpan.FromHours(24); break;
-                case 3: range = null; break; // 全期間
+                case 0: startTime = now.AddHours(-1); break;
+                case 1: startTime = now.AddHours(-6); break;
+                case 2: startTime = now.AddHours(-24); break;
+                case 3: startTime = now.AddDays(-7); break;
+                case 4: startTime = null; break; // 全期間
+                case 5: // カスタム期間指定
+                    startTime = _dtpStart.Value;
+                    endTime = _dtpEnd.Value;
+                    break;
             }
 
-            List<TemperatureLogEntry> logs = EventLogger.ReadLogs(range);
+            // SQLite から高速読み込み
+            List<TemperatureLogEntry> logs = HistoryDatabase.ReadLogs(startTime, endTime);
+
+            // フォールバック: SQLite にまだデータが無ければイベントログから読み込み
+            if (logs.Count == 0 && _cmbRange.SelectedIndex != 5)
+            {
+                TimeSpan? tsRange = null;
+                if (startTime.HasValue) tsRange = now - startTime.Value;
+                logs = EventLogger.ReadLogs(tsRange);
+            }
 
             foreach (Series s in _chart.Series)
             {
@@ -358,7 +472,7 @@ namespace CpuThermoWatcher
 
             if (logs.Count == 0)
             {
-                _lblSummary.Text = "該当する期間のイベントログ記録が見つかりませんでした。（Windows イベントログの記録が有効かご確認ください）";
+                _lblSummary.Text = "該当する期間の温度履歴記録が見つかりませんでした。";
                 return;
             }
 
@@ -399,17 +513,20 @@ namespace CpuThermoWatcher
             {
                 // 1. CPU
                 float cv = entry.MaxTemperature;
-                if (cv < cpuMin) cpuMin = cv;
-                if (cv > cpuMax) cpuMax = cv;
-                if (cv < globalMin) globalMin = cv;
-                if (cv > globalMax) globalMax = cv;
-                cpuSum += cv;
-                cpuCount++;
+                if (cv > 0.0f)
+                {
+                    if (cv < cpuMin) cpuMin = cv;
+                    if (cv > cpuMax) cpuMax = cv;
+                    if (cv < globalMin) globalMin = cv;
+                    if (cv > globalMax) globalMax = cv;
+                    cpuSum += cv;
+                    cpuCount++;
 
-                DataPoint cpuPt = new DataPoint();
-                cpuPt.SetValueXY(entry.Timestamp, cv);
-                cpuPt.Tag = entry.MaxSensorName;
-                cpuSeries.Points.Add(cpuPt);
+                    DataPoint cpuPt = new DataPoint();
+                    cpuPt.SetValueXY(entry.Timestamp, cv);
+                    cpuPt.Tag = entry.MaxSensorName;
+                    cpuSeries.Points.Add(cpuPt);
+                }
 
                 // 2. iGPU
                 if (entry.IGpuTemperature.HasValue)
@@ -487,6 +604,9 @@ namespace CpuThermoWatcher
 
             _lblSummary.Text = string.Format("データ: {0} 件 | {1}", logs.Count, string.Join(" | ", summaries.ToArray()));
 
+            if (globalMin == float.MaxValue) globalMin = 40f;
+            if (globalMax == float.MinValue) globalMax = 80f;
+
             // Y軸の上限・下限を設定: 5*int((max+8)/5), 5*int((min-3)/5)
             double yMax = 5 * (int)((globalMax + 8f) / 5f);
             double yMin = 5 * (int)((globalMin - 3f) / 5f);
@@ -496,9 +616,21 @@ namespace CpuThermoWatcher
             ChartArea area = _chart.ChartAreas["Default"];
             area.AxisY.Minimum = yMin;
             area.AxisY.Maximum = yMax;
+            area.AxisY.MajorGrid.Interval = 10;
+            area.AxisY.MajorGrid.IntervalOffset = (10.0 - (yMin % 10.0)) % 10.0;
 
-            // X軸フォーマット調整
-            if (_cmbRange.SelectedIndex >= 2)
+            // X軸フォーマット調整 (24時間以上なら日付付き)
+            double spanHours = 1.0;
+            if (logs.Count >= 2)
+            {
+                spanHours = (logs[logs.Count - 1].Timestamp - logs[0].Timestamp).TotalHours;
+            }
+            else if (_cmbRange.SelectedIndex >= 2)
+            {
+                spanHours = 25.0;
+            }
+
+            if (spanHours >= 24.0)
             {
                 area.AxisX.LabelStyle.Format = "MM/dd HH:mm";
             }

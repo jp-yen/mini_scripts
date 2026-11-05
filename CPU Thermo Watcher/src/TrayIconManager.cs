@@ -40,6 +40,7 @@ namespace CpuThermoWatcher
         private CpuTemperatureSnapshot _latestSnapshot;
         private SensorListForm _sensorListForm;
         private GraphViewerForm _graphViewerForm;
+        private HistoryViewerForm _historyViewerForm;
 
         public TrayIconManager(Settings settings, HardwareMonitor hardwareMonitor, EventLogger eventLogger)
         {
@@ -78,6 +79,10 @@ namespace CpuThermoWatcher
             graphItem.Click += OnShowGraph;
             _contextMenu.Items.Add(graphItem);
 
+            ToolStripMenuItem historyItem = new ToolStripMenuItem("温度履歴データ一覧 (&H)...");
+            historyItem.Click += OnShowHistory;
+            _contextMenu.Items.Add(historyItem);
+
             _contextMenu.Items.Add(new ToolStripSeparator());
 
             _eventLogToggleItem = new ToolStripMenuItem("Windows イベントログに記録 (&L)");
@@ -111,10 +116,13 @@ namespace CpuThermoWatcher
             CpuTemperatureSnapshot snapshot = _hardwareMonitor.ReadCpuTemperatures();
             _latestSnapshot = snapshot;
 
-            // イベントログ記録の判定 (CPU, iGPU, dGPU)
-            _eventLogger.LogSnapshot(snapshot, _settings);
+            // 1. SQLite への温度記録 (定期間隔または高温警告時)
+            bool sqliteWritten = HistoryDatabase.LogSnapshot(snapshot, _settings);
 
-            // 1. デバイス一覧のトレイアイコン同期
+            // 2. Windows イベントログへの記録 (設定有効時または高温警告時)
+            bool logWritten = _eventLogger.LogSnapshot(snapshot, _settings);
+
+            // 3. デバイス一覧のトレイアイコン同期
             List<HardwareDeviceSummary> devices = snapshot.Devices;
             if (devices == null || devices.Count == 0)
             {
@@ -177,7 +185,7 @@ namespace CpuThermoWatcher
                 }
             }
 
-            // 2. コンテキストメニューヘッダーの更新
+            // 4. コンテキストメニューヘッダーの更新
             List<string> headerParts = new List<string>();
             for (int i = 0; i < devices.Count; i++)
             {
@@ -196,10 +204,22 @@ namespace CpuThermoWatcher
                 _headerItem.Text = "CPU / GPU: 待機中...";
             }
 
-            // 3. センサー一覧ウィンドウが開いていれば更新通知
+            // 5. センサー一覧ウィンドウが開いていれば更新通知
             if (_sensorListForm != null && !_sensorListForm.IsDisposed && _sensorListForm.Visible)
             {
                 _sensorListForm.UpdateSnapshot(snapshot, _settings.WarningThresholdCelsius);
+            }
+
+            // 6. グラフウィンドウが開いていれば、新データ記録後に自動再描画を通知
+            if ((sqliteWritten || logWritten) && _graphViewerForm != null && !_graphViewerForm.IsDisposed && _graphViewerForm.Visible)
+            {
+                _graphViewerForm.OnLogWritten(_settings.WarningThresholdCelsius);
+            }
+
+            // 7. 履歴データビューワーが開いていれば、新データ記録後に更新通知
+            if ((sqliteWritten || logWritten) && _historyViewerForm != null && !_historyViewerForm.IsDisposed && _historyViewerForm.Visible)
+            {
+                _historyViewerForm.OnLogWritten();
             }
         }
 
@@ -381,6 +401,16 @@ namespace CpuThermoWatcher
             _graphViewerForm.BringToFront();
         }
 
+        private void OnShowHistory(object sender, EventArgs e)
+        {
+            if (_historyViewerForm == null || _historyViewerForm.IsDisposed)
+            {
+                _historyViewerForm = new HistoryViewerForm();
+            }
+            _historyViewerForm.Show();
+            _historyViewerForm.BringToFront();
+        }
+
         private void OnToggleEventLogging(object sender, EventArgs e)
         {
             _settings.EnableEventLogging = _eventLogToggleItem.Checked;
@@ -436,6 +466,12 @@ namespace CpuThermoWatcher
             {
                 _graphViewerForm.Dispose();
                 _graphViewerForm = null;
+            }
+
+            if (_historyViewerForm != null && !_historyViewerForm.IsDisposed)
+            {
+                _historyViewerForm.Dispose();
+                _historyViewerForm = null;
             }
 
             if (_contextMenu != null)

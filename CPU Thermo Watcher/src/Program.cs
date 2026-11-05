@@ -37,6 +37,9 @@ namespace CpuThermoWatcher
                 // 設定の読み込み
                 Settings settings = Settings.Load();
 
+                // SQLite データベース初期化 (WAL モード・テーブル・インデックス作成)
+                HistoryDatabase.Initialize();
+
                 // ハードウェアモニタとロガーの初期化
                 using (HardwareMonitor hwMonitor = new HardwareMonitor())
                 {
