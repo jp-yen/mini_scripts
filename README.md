@@ -3,23 +3,19 @@
 
 - alarm-window (PowerShell Win)<br />
   アラームウィンドウを表示。スクリプトと同じディレクトリにある a.wav を連続再生 (最後のアラームから 10分で停止)
-```powershell
-  .\alarm.ps1 "メッセージ"
-```
-  で、メッセージをウィンドウに表示
-  複数回発生した場合でも、一つのウィンドウですべてのメッセージを表示
+
+- chrome-selection-copy (Chrome 拡張機能)<br />
+  コピーが禁止されている文章を強引にコピー
+
+- CPU Thermo Watcher (C# Win)<br />
+  タスクトレイに常駐し、CPU や GPU の最高温度をリアルタイム表示。
 
 - Editer-rename (C# & PowerShell Win)<br />
 ファイル名の変更をエディタで行うツール。(C# 版と、PowerShell 版があり)
 右クリックの送るから「Editor Rename Tool」を選択するとエディターとGUIが起動、エディターでファイル名を変更 & 保存し、GUIの「編集完了」をクリック(※)してリネームを実行します。
-EditorRenameTool.exe を直接起動すれば履歴から Undo もできます。<br />
-※タブ式エディタが増えて、エディタの終了で編集の終了を検知できないためボタンを押す必要があります。
 
 - fake_user.py (py)<br />
   AD のユーザーを PowerShell で登録できる形式 (CSV) でランダムに生成する
-
-- chrome-selection-copy (Chrome 拡張機能)<br />
-  コピーが禁止されている文章を強引にコピー
 
 - firefox-selection-copy (Firefox 拡張機能)<br />
   コピーが禁止されている文章を強引にコピー
@@ -44,9 +40,11 @@ EditorRenameTool.exe を直接起動すれば履歴から Undo もできます�
 システムの設定としてはスタートメニューで「地域」を検索、「管理」タブを開いて「Unicode 対応ではないプログラムの言語」の「システムロケールの変更」を開く<br />
 「✅ベータ：ワールドワイド言語サポートで Unicode UTF-8 を使用」にチェックを入れたり外したり。
 
-
 - py-ping (py)<br />
   ping の送信時刻を表示できる python スクリプト (root 権限が必要)
+
+- RAD-tester (C# Win)<br />
+  RADIUS および RadSec (TLS 1.3 / 相互証明書認証) の認証テストクライアント (CLI / GUI)。
 
 - syslog-gen (py)<br />
   syslog メッセージを生成。
@@ -61,3 +59,6 @@ EditorRenameTool.exe を直接起動すれば履歴から Undo もできます�
 
 - vyos-pppoe-generator.html (html VyOS)<br />
   VyOS を PPPoE サーバーとして使う時の設定生成ページ
+
+- Windows-telnet (C# Win)<br />
+  Windows Terminal で zsh や 256色・Unicode が崩れず動作するモダンな Telnet クライアント。<br />
