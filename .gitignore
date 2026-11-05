@@ -20,3 +20,10 @@ publish/
 # AI scripts / Scratch
 font-selector/scripts/
 
+# Certificates & Keys (Test certs)
+*.pem
+*.key
+*.crt
+*.pfx
+
+
