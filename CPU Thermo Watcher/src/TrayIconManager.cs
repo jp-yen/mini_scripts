@@ -41,6 +41,7 @@ namespace CpuThermoWatcher
         private SensorListForm _sensorListForm;
         private GraphViewerForm _graphViewerForm;
         private HistoryViewerForm _historyViewerForm;
+        private CpuCompositeGraphForm _compositeGraphForm;
 
         public TrayIconManager(Settings settings, HardwareMonitor hardwareMonitor, EventLogger eventLogger)
         {
@@ -78,6 +79,10 @@ namespace CpuThermoWatcher
             ToolStripMenuItem graphItem = new ToolStripMenuItem("温度推移グラフを表示 (&G)...");
             graphItem.Click += OnShowGraph;
             _contextMenu.Items.Add(graphItem);
+
+            ToolStripMenuItem compositeGraphItem = new ToolStripMenuItem("CPU クロック & 温度 複合グラフ (&M)...");
+            compositeGraphItem.Click += OnShowCompositeGraph;
+            _contextMenu.Items.Add(compositeGraphItem);
 
             ToolStripMenuItem historyItem = new ToolStripMenuItem("温度履歴データ一覧 (&H)...");
             historyItem.Click += OnShowHistory;
@@ -166,14 +171,14 @@ namespace CpuThermoWatcher
                         UpdateIconBitmap(item, devSummary.Category, devId, temp, isWarning);
 
                         string tooltip = string.Format("[{0}] {1:F0}℃ ({2})\n警告閾値: {3:F0}℃",
-                            devId.Replace(":", " #"), temp, devSummary.MaxSensor.SensorName, threshold);
+                            UiHelper.FormatDeviceLabel(devId), temp, devSummary.MaxSensor.SensorName, threshold);
                         if (tooltip.Length > 63) tooltip = tooltip.Substring(0, 60) + "...";
                         item.NotifyIcon.Text = tooltip;
                     }
                     else
                     {
                         UpdateIconNA(item, devSummary != null ? devSummary.Category : DeviceCategory.Cpu, devId);
-                        item.NotifyIcon.Text = string.Format("[{0}] 温度取得待機中", devId.Replace(":", " #"));
+                        item.NotifyIcon.Text = string.Format("[{0}] 温度取得待機中", UiHelper.FormatDeviceLabel(devId));
                     }
                 }
                 else
@@ -192,7 +197,7 @@ namespace CpuThermoWatcher
                 HardwareDeviceSummary d = devices[i];
                 if (d.MaxSensor != null)
                 {
-                    headerParts.Add(string.Format("{0}: {1:F1}℃", d.DeviceId.Replace(":", " #"), d.MaxSensor.Value));
+                    headerParts.Add(string.Format("{0}: {1:F1}℃", UiHelper.FormatDeviceLabel(d.DeviceId), d.MaxSensor.Value));
                 }
             }
             if (headerParts.Count > 0)
@@ -207,7 +212,7 @@ namespace CpuThermoWatcher
             // 5. センサー一覧ウィンドウが開いていれば更新通知
             if (_sensorListForm != null && !_sensorListForm.IsDisposed && _sensorListForm.Visible)
             {
-                _sensorListForm.UpdateSnapshot(snapshot, _settings.WarningThresholdCelsius);
+                _sensorListForm.UpdateSnapshot(snapshot, _settings);
             }
 
             // 6. グラフウィンドウが開いていれば、新データ記録後に自動再描画を通知
@@ -216,7 +221,13 @@ namespace CpuThermoWatcher
                 _graphViewerForm.OnLogWritten(_settings.WarningThresholdCelsius);
             }
 
-            // 7. 履歴データビューワーが開いていれば、新データ記録後に更新通知
+            // 7. CPU複合グラフウィンドウが開いていれば、新データ記録後に自動再描画を通知
+            if ((sqliteWritten || logWritten) && _compositeGraphForm != null && !_compositeGraphForm.IsDisposed && _compositeGraphForm.Visible)
+            {
+                _compositeGraphForm.OnLogWritten(snapshot, _settings.WarningThresholdCelsius);
+            }
+
+            // 8. 履歴データビューワーが開いていれば、新データ記録後に更新通知
             if ((sqliteWritten || logWritten) && _historyViewerForm != null && !_historyViewerForm.IsDisposed && _historyViewerForm.Visible)
             {
                 _historyViewerForm.OnLogWritten();
@@ -319,9 +330,14 @@ namespace CpuThermoWatcher
         private void SetItemIcon(TrayIconItem item, Bitmap bitmap)
         {
             IntPtr hIcon = bitmap.GetHicon();
+            Icon prevIcon = item.NotifyIcon.Icon;
             Icon newIcon = Icon.FromHandle(hIcon);
             item.NotifyIcon.Icon = newIcon;
 
+            if (prevIcon != null)
+            {
+                prevIcon.Dispose();
+            }
             if (item.CurrentIconHandle != IntPtr.Zero)
             {
                 DestroyIcon(item.CurrentIconHandle);
@@ -385,7 +401,7 @@ namespace CpuThermoWatcher
         {
             if (_sensorListForm == null || _sensorListForm.IsDisposed)
             {
-                _sensorListForm = new SensorListForm(_latestSnapshot, _settings.WarningThresholdCelsius);
+                _sensorListForm = new SensorListForm(_latestSnapshot, _settings);
             }
             _sensorListForm.Show();
             _sensorListForm.BringToFront();
@@ -399,6 +415,16 @@ namespace CpuThermoWatcher
             }
             _graphViewerForm.Show();
             _graphViewerForm.BringToFront();
+        }
+
+        private void OnShowCompositeGraph(object sender, EventArgs e)
+        {
+            if (_compositeGraphForm == null || _compositeGraphForm.IsDisposed)
+            {
+                _compositeGraphForm = new CpuCompositeGraphForm(_settings.WarningThresholdCelsius);
+            }
+            _compositeGraphForm.Show();
+            _compositeGraphForm.BringToFront();
         }
 
         private void OnShowHistory(object sender, EventArgs e)
@@ -444,7 +470,13 @@ namespace CpuThermoWatcher
             {
                 if (item.NotifyIcon != null)
                 {
+                    Icon prevIcon = item.NotifyIcon.Icon;
                     item.NotifyIcon.Visible = false;
+                    item.NotifyIcon.Icon = null;
+                    if (prevIcon != null)
+                    {
+                        prevIcon.Dispose();
+                    }
                     item.NotifyIcon.Dispose();
                     item.NotifyIcon = null;
                 }
@@ -466,6 +498,12 @@ namespace CpuThermoWatcher
             {
                 _graphViewerForm.Dispose();
                 _graphViewerForm = null;
+            }
+
+            if (_compositeGraphForm != null && !_compositeGraphForm.IsDisposed)
+            {
+                _compositeGraphForm.Dispose();
+                _compositeGraphForm = null;
             }
 
             if (_historyViewerForm != null && !_historyViewerForm.IsDisposed)

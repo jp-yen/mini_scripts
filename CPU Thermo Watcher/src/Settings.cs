@@ -20,20 +20,10 @@ namespace CpuThermoWatcher
         public float WarningThresholdCelsius { get; set; }     // CPU 警告閾値
         public float WarningThresholdIGpuCelsius { get; set; } // iGPU 警告閾値
         public float WarningThresholdDGpuCelsius { get; set; } // dGPU 警告閾値
-        public float WarningThresholdGpuCelsius
-        {
-            get { return WarningThresholdDGpuCelsius; }
-            set { WarningThresholdDGpuCelsius = value; }
-        }
 
         public bool ShowCpuInTray { get; set; }
         public bool ShowIGpuInTray { get; set; }
         public bool ShowDGpuInTray { get; set; }
-        public bool ShowGpuInTray
-        {
-            get { return ShowDGpuInTray; }
-            set { ShowDGpuInTray = value; }
-        }
 
         public List<string> EnabledTrayDeviceIds { get; set; } // 表示対象デバイスIDのリスト ("CPU", "iGPU", "dGPU:0" など)
 
@@ -52,7 +42,7 @@ namespace CpuThermoWatcher
             ShowDGpuInTray = false;
             EnabledTrayDeviceIds = new List<string>() { "CPU" };
             EnableEventLogging = true;
-            EventLogIntervalSeconds = 60;
+            EventLogIntervalSeconds = 10;
             TextColorMode = "Auto";
         }
 

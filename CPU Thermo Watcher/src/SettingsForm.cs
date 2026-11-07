@@ -44,12 +44,7 @@ namespace CpuThermoWatcher
             this.StartPosition = FormStartPosition.CenterScreen;
 
             // DPI スケールの動的計算
-            float dpiScale = 1.0f;
-            using (Graphics g = this.CreateGraphics())
-            {
-                dpiScale = g.DpiY / 96.0f;
-            }
-            if (dpiScale < 1.0f) dpiScale = 1.0f;
+            float dpiScale = UiHelper.GetDpiScale(this);
 
             this.ClientSize = new Size((int)(620 * dpiScale), (int)(520 * dpiScale));
             this.Padding = new Padding((int)(18 * dpiScale));
@@ -189,14 +184,14 @@ namespace CpuThermoWatcher
 
             // 7. イベントログ周期
             Label lblEventLogInterval = new Label();
-            lblEventLogInterval.Text = "　イベント記録周期 (秒):";
+            lblEventLogInterval.Text = "　履歴・イベント記録周期 (秒):";
             lblEventLogInterval.AutoSize = true;
             lblEventLogInterval.Dock = DockStyle.Fill;
             lblEventLogInterval.TextAlign = ContentAlignment.MiddleLeft;
             lblEventLogInterval.Margin = new Padding(0, 0, (int)(15 * dpiScale), (int)(12 * dpiScale));
 
             _numEventLogInterval = new NumericUpDown();
-            _numEventLogInterval.Minimum = 10;
+            _numEventLogInterval.Minimum = 5;
             _numEventLogInterval.Maximum = 3600;
             _numEventLogInterval.Width = (int)(110 * dpiScale);
             _numEventLogInterval.Margin = new Padding(0, 0, 0, (int)(12 * dpiScale));
@@ -277,10 +272,10 @@ namespace CpuThermoWatcher
 
         private void LoadValues()
         {
-            _numCpuThreshold.Value = (decimal)_settings.WarningThresholdCelsius;
-            _numIGpuThreshold.Value = (decimal)_settings.WarningThresholdIGpuCelsius;
-            _numDGpuThreshold.Value = (decimal)_settings.WarningThresholdDGpuCelsius;
-            _numInterval.Value = Math.Max(1, _settings.UpdateIntervalMs / 1000);
+            _numCpuThreshold.Value = ClampDecimal((decimal)_settings.WarningThresholdCelsius, _numCpuThreshold);
+            _numIGpuThreshold.Value = ClampDecimal((decimal)_settings.WarningThresholdIGpuCelsius, _numIGpuThreshold);
+            _numDGpuThreshold.Value = ClampDecimal((decimal)_settings.WarningThresholdDGpuCelsius, _numDGpuThreshold);
+            _numInterval.Value = ClampDecimal(_settings.UpdateIntervalMs / 1000m, _numInterval);
 
             foreach (KeyValuePair<string, CheckBox> kv in _deviceCheckBoxes)
             {
@@ -288,7 +283,7 @@ namespace CpuThermoWatcher
             }
 
             _chkEventLog.Checked = _settings.EnableEventLogging;
-            _numEventLogInterval.Value = Math.Max(10, _settings.EventLogIntervalSeconds);
+            _numEventLogInterval.Value = ClampDecimal(_settings.EventLogIntervalSeconds, _numEventLogInterval);
             _numEventLogInterval.Enabled = _settings.EnableEventLogging;
 
             if (string.Equals(_settings.TextColorMode, "White", StringComparison.OrdinalIgnoreCase))
@@ -303,6 +298,13 @@ namespace CpuThermoWatcher
             {
                 _cmbTextColor.SelectedIndex = 0; // 自動
             }
+        }
+
+        private static decimal ClampDecimal(decimal value, NumericUpDown control)
+        {
+            if (value < control.Minimum) return control.Minimum;
+            if (value > control.Maximum) return control.Maximum;
+            return value;
         }
 
         private void OnSave(object sender, EventArgs e)

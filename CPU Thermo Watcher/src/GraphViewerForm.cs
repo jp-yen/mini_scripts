@@ -46,11 +46,7 @@ namespace CpuThermoWatcher
             this.Icon = SystemIcons.Application;
 
             // DPI スケールの動的計算
-            using (Graphics g = this.CreateGraphics())
-            {
-                _dpiScale = g.DpiY / 96.0f;
-            }
-            if (_dpiScale < 1.0f) _dpiScale = 1.0f;
+            _dpiScale = UiHelper.GetDpiScale(this);
 
             this.ClientSize = new Size((int)(1000 * _dpiScale), (int)(620 * _dpiScale));
             this.MinimumSize = new Size((int)(720 * _dpiScale), (int)(460 * _dpiScale));
@@ -73,7 +69,7 @@ namespace CpuThermoWatcher
 
             _cmbRange = new ComboBox();
             _cmbRange.DropDownStyle = ComboBoxStyle.DropDownList;
-            _cmbRange.Items.AddRange(new object[] { "直近 1 時間", "直近 6 時間", "直近 24 時間", "直近 7 日間", "全期間", "カスタム指定..." });
+            _cmbRange.Items.AddRange(UiHelper.TimeRangePresets);
             _cmbRange.SelectedIndex = 0; // 直近1時間
             _cmbRange.Width = (int)(150 * _dpiScale);
             _cmbRange.Margin = new Padding(0, (int)(1 * _dpiScale), (int)(10 * _dpiScale), 0);
@@ -253,7 +249,7 @@ namespace CpuThermoWatcher
 
         private void OnRangeChanged(object sender, EventArgs e)
         {
-            bool isCustom = (_cmbRange.SelectedIndex == 5);
+            bool isCustom = (_cmbRange.SelectedIndex == UiHelper.CustomRangeIndex);
             _dtpStart.Visible = isCustom;
             _lblTilde.Visible = isCustom;
             _dtpEnd.Visible = isCustom;
@@ -326,21 +322,7 @@ namespace CpuThermoWatcher
                 text += string.Format("\nセンサー: {0}", sensor);
             }
 
-            int tipX = e.X + (int)(14 * _dpiScale);
-            int tipY = e.Y + (int)(14 * _dpiScale);
-            if (tipX + (int)(180 * _dpiScale) > _chart.Width)
-            {
-                tipX = Math.Max(0, e.X - (int)(180 * _dpiScale));
-            }
-            if (tipY + (int)(70 * _dpiScale) > _chart.Height)
-            {
-                tipY = Math.Max(0, e.Y - (int)(70 * _dpiScale));
-            }
-
-            if (_chartToolTip != null)
-            {
-                _chartToolTip.Show(text, _chart, tipX, tipY);
-            }
+            UiHelper.ShowChartTooltip(_chartToolTip, _chart, e.Location, text, _dpiScale);
         }
 
         private bool FindNearestPoint(Point mouseLocation, float maxPixelDistance, out string outSeriesName, out int outPointIndex)
@@ -407,6 +389,11 @@ namespace CpuThermoWatcher
         public void OnLogWritten(float threshold)
         {
             if (this.IsDisposed) return;
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action<float>(OnLogWritten), threshold);
+                return;
+            }
 
             if (Math.Abs(_threshold - threshold) > 0.01f)
             {
@@ -437,31 +424,17 @@ namespace CpuThermoWatcher
                 _chart.Cursor = Cursors.Default;
             }
 
-            DateTime? startTime = null;
-            DateTime? endTime = null;
-            DateTime now = DateTime.Now;
-
-            switch (_cmbRange.SelectedIndex)
-            {
-                case 0: startTime = now.AddHours(-1); break;
-                case 1: startTime = now.AddHours(-6); break;
-                case 2: startTime = now.AddHours(-24); break;
-                case 3: startTime = now.AddDays(-7); break;
-                case 4: startTime = null; break; // 全期間
-                case 5: // カスタム期間指定
-                    startTime = _dtpStart.Value;
-                    endTime = _dtpEnd.Value;
-                    break;
-            }
+            DateTime? startTime;
+            DateTime? endTime;
+            UiHelper.ResolveTimeRange(_cmbRange.SelectedIndex, _dtpStart.Value, _dtpEnd.Value, out startTime, out endTime);
 
             // SQLite から高速読み込み
             List<TemperatureLogEntry> logs = HistoryDatabase.ReadLogs(startTime, endTime);
 
             // フォールバック: SQLite にまだデータが無ければイベントログから読み込み
-            if (logs.Count == 0 && _cmbRange.SelectedIndex != 5)
+            if (logs.Count == 0 && _cmbRange.SelectedIndex != UiHelper.CustomRangeIndex)
             {
-                TimeSpan? tsRange = null;
-                if (startTime.HasValue) tsRange = now - startTime.Value;
+                TimeSpan? tsRange = startTime.HasValue ? (TimeSpan?)(DateTime.Now - startTime.Value) : null;
                 logs = EventLogger.ReadLogs(tsRange);
             }
 
@@ -567,9 +540,10 @@ namespace CpuThermoWatcher
                     dgpuSum[dgpuKey] += dgv;
                     dgpuCount[dgpuKey]++;
 
-                    string seriesName = dgpuKey.Replace(":", " #") + "最高温度";
+                    string dgpuLabel = UiHelper.FormatDeviceLabel(dgpuKey);
+                    string seriesName = dgpuLabel + "最高温度";
                     Color color = dgpuColors[dgpuColorIdx % dgpuColors.Length];
-                    Series dgpuSeries = CreateSeries(seriesName, color, dgpuKey.Replace(":", " #") + " 最高温度");
+                    Series dgpuSeries = CreateSeries(seriesName, color, dgpuLabel + " 最高温度");
                     dgpuSeries.MarkerSize = markerSize;
 
                     DataPoint dgpuPt = new DataPoint();
@@ -598,7 +572,7 @@ namespace CpuThermoWatcher
                 if (count > 0)
                 {
                     summaries.Add(string.Format("{0} [最高: {1:F1}℃ / 最低: {2:F1}℃ / 平均: {3:F1}℃]",
-                        dgpuKey.Replace(":", " #"), dgpuMax[dgpuKey], dgpuMin[dgpuKey], dgpuSum[dgpuKey] / count));
+                        UiHelper.FormatDeviceLabel(dgpuKey), dgpuMax[dgpuKey], dgpuMin[dgpuKey], dgpuSum[dgpuKey] / count));
                 }
             }
 
@@ -620,24 +594,9 @@ namespace CpuThermoWatcher
             area.AxisY.MajorGrid.IntervalOffset = (10.0 - (yMin % 10.0)) % 10.0;
 
             // X軸フォーマット調整 (24時間以上なら日付付き)
-            double spanHours = 1.0;
-            if (logs.Count >= 2)
-            {
-                spanHours = (logs[logs.Count - 1].Timestamp - logs[0].Timestamp).TotalHours;
-            }
-            else if (_cmbRange.SelectedIndex >= 2)
-            {
-                spanHours = 25.0;
-            }
-
-            if (spanHours >= 24.0)
-            {
-                area.AxisX.LabelStyle.Format = "MM/dd HH:mm";
-            }
-            else
-            {
-                area.AxisX.LabelStyle.Format = "HH:mm";
-            }
+            DateTime? firstTime = logs.Count >= 2 ? (DateTime?)logs[0].Timestamp : null;
+            DateTime? lastTime = logs.Count >= 2 ? (DateTime?)logs[logs.Count - 1].Timestamp : null;
+            UiHelper.UpdateChartTimeAxisFormat(area.AxisX, firstTime, lastTime, _cmbRange.SelectedIndex);
 
             _chart.Invalidate();
         }

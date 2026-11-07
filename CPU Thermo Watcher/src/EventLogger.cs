@@ -23,8 +23,6 @@ namespace CpuThermoWatcher
         public string IGpuSensorName { get; set; }
         public Dictionary<string, float> DGpuTemperatures { get; set; }
         public Dictionary<string, string> DGpuSensorNames { get; set; }
-        public float? GpuTemperature { get; set; } // 旧互換用 (代表GPU温度)
-        public string GpuSensorName { get; set; }
         public bool IsWarning { get; set; }
 
         public TemperatureLogEntry()
@@ -101,27 +99,7 @@ namespace CpuThermoWatcher
             }
 
             DateTime now = DateTime.Now;
-            bool cpuWarning = snapshot.MaxCpuSensor != null && snapshot.MaxCpuSensor.Value >= settings.WarningThresholdCelsius;
-            bool igpuWarning = snapshot.MaxIGpuSensor != null && snapshot.MaxIGpuSensor.Value >= settings.WarningThresholdIGpuCelsius;
-            bool dgpuWarning = false;
-
-            if (snapshot.Devices != null)
-            {
-                for (int i = 0; i < snapshot.Devices.Count; i++)
-                {
-                    HardwareDeviceSummary dev = snapshot.Devices[i];
-                    if (dev.Category == DeviceCategory.DGpu && dev.MaxSensor != null)
-                    {
-                        if (dev.MaxSensor.Value >= settings.WarningThresholdDGpuCelsius)
-                        {
-                            dgpuWarning = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            bool isOverThreshold = cpuWarning || igpuWarning || dgpuWarning;
+            bool isOverThreshold = snapshot.IsAnyDeviceOverThreshold(settings);
 
             // 1. 高温警告時のログ出力（最低30秒間隔）
             if (isOverThreshold && (now - _lastWarningLogTime).TotalSeconds >= 30)
@@ -367,22 +345,18 @@ namespace CpuThermoWatcher
                                     }
 
                                     // 旧 GPU 温度のフォールバック
-                                    Match matchLegacyGpu = LegacyGpuTempRegex.Match(msg);
-                                    if (matchLegacyGpu.Success)
+                                    if (item.DGpuTemperatures.Count == 0)
                                     {
-                                        float lgVal;
-                                        if (float.TryParse(matchLegacyGpu.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out lgVal))
+                                        Match matchLegacyGpu = LegacyGpuTempRegex.Match(msg);
+                                        if (matchLegacyGpu.Success)
                                         {
-                                            item.GpuTemperature = lgVal;
-                                            Match matchLgSensor = LegacyGpuSensorRegex.Match(msg);
-                                            if (matchLgSensor.Success)
+                                            float lgVal;
+                                            if (float.TryParse(matchLegacyGpu.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out lgVal))
                                             {
-                                                item.GpuSensorName = matchLgSensor.Groups[1].Value.Trim();
-                                            }
-                                            if (item.DGpuTemperatures.Count == 0)
-                                            {
+                                                Match matchLgSensor = LegacyGpuSensorRegex.Match(msg);
+                                                string lgSensor = matchLgSensor.Success ? matchLgSensor.Groups[1].Value.Trim() : "GPU";
                                                 item.DGpuTemperatures["dGPU:0"] = lgVal;
-                                                item.DGpuSensorNames["dGPU:0"] = item.GpuSensorName ?? "GPU";
+                                                item.DGpuSensorNames["dGPU:0"] = lgSensor;
                                             }
                                         }
                                     }

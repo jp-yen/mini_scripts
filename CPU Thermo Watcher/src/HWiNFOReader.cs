@@ -168,8 +168,7 @@ namespace CpuThermoWatcher
                                 string category = sensorCategories.ContainsKey(entry.SensorIndex) ? sensorCategories[entry.SensorIndex] : "CPU";
                                 string label = !string.IsNullOrEmpty(entry.NameUser) ? entry.NameUser : entry.NameOriginal;
 
-                                bool isGpu;
-                                if (IsTemperatureSensor(category, label, entry.Unit, out isGpu))
+                                if (IsTemperatureSensor(category, label, entry.Unit))
                                 {
                                     if (entry.Value > 10.0 && entry.Value < 135.0)
                                     {
@@ -250,8 +249,7 @@ namespace CpuThermoWatcher
                             {
                                 if (tempVal > 10.0f && tempVal < 135.0f)
                                 {
-                                    bool isGpu;
-                                    if (IsTemperatureSensor(sensor, label, unit, out isGpu))
+                                    if (IsTemperatureSensor(sensor, label, unit))
                                     {
                                         DeviceCategory devCat;
                                         string devId;
@@ -284,9 +282,8 @@ namespace CpuThermoWatcher
             return null;
         }
 
-        private static bool IsTemperatureSensor(string category, string label, string unit, out bool isGpu)
+        private static bool IsTemperatureSensor(string category, string label, string unit)
         {
-            isGpu = false;
             if (string.IsNullOrEmpty(label)) return false;
 
             // 1. 単位や名称から使用率（%）やクロック、ディスク、電圧、ファン等を除外
@@ -321,17 +318,12 @@ namespace CpuThermoWatcher
 
             if (catIsGpu || labelIsGpu)
             {
-                if (label.IndexOf("Temp", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    label.IndexOf("温度", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    label.IndexOf("Hot Spot", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    label.IndexOf("Memory Junction", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    label.IndexOf("Core", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    (!string.IsNullOrEmpty(unit) && (unit.IndexOf("C", StringComparison.OrdinalIgnoreCase) >= 0 || unit.IndexOf("℃") >= 0)))
-                {
-                    isGpu = true;
-                    return true;
-                }
-                return false;
+                return label.IndexOf("Temp", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       label.IndexOf("温度", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       label.IndexOf("Hot Spot", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       label.IndexOf("Memory Junction", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       label.IndexOf("Core", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       (!string.IsNullOrEmpty(unit) && (unit.IndexOf("C", StringComparison.OrdinalIgnoreCase) >= 0 || unit.IndexOf("℃") >= 0));
             }
 
             // 3. CPU 判定

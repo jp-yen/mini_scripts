@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Management;
 using LibreHardwareMonitor.Hardware;
 
@@ -17,6 +18,23 @@ namespace CpuThermoWatcher
         Cpu,
         IGpu,
         DGpu
+    }
+
+    public class ClockReading
+    {
+        public string CoreName { get; set; } // e.g. "Core #1", "Core #2"
+        public float Value { get; set; }     // MHz
+
+        public ClockReading(string coreName, float value)
+        {
+            CoreName = coreName;
+            Value = value;
+        }
+
+        public override string ToString()
+        {
+            return string.Format("{0}: {1:F0}MHz", CoreName, Value);
+        }
     }
 
     public class TemperatureReading
@@ -32,13 +50,6 @@ namespace CpuThermoWatcher
         public bool IsGpu
         {
             get { return Category == DeviceCategory.IGpu || Category == DeviceCategory.DGpu; }
-            set
-            {
-                if (value && Category == DeviceCategory.Cpu)
-                {
-                    Category = DeviceCategory.DGpu;
-                }
-            }
         }
 
         public TemperatureReading(
@@ -57,11 +68,6 @@ namespace CpuThermoWatcher
             Category = category;
             DeviceId = !string.IsNullOrEmpty(deviceId) ? deviceId : (category == DeviceCategory.Cpu ? "CPU" : (category == DeviceCategory.IGpu ? "iGPU" : "dGPU:0"));
             DeviceName = !string.IsNullOrEmpty(deviceName) ? deviceName : hardwareName;
-        }
-
-        public TemperatureReading(string hardwareName, string sensorName, float value, string sensorType, bool isGpu)
-            : this(hardwareName, sensorName, value, sensorType, isGpu ? DeviceCategory.DGpu : DeviceCategory.Cpu)
-        {
         }
 
         public override string ToString()
@@ -91,8 +97,8 @@ namespace CpuThermoWatcher
     public class CpuTemperatureSnapshot
     {
         public List<TemperatureReading> Sensors { get; set; }
+        public List<ClockReading> CpuClocks { get; set; }
         public List<HardwareDeviceSummary> Devices { get; set; }
-        public TemperatureReading MaxSensor { get; set; }
         public TemperatureReading MaxCpuSensor { get; set; }
         public TemperatureReading MaxIGpuSensor { get; set; }
         public TemperatureReading MaxGpuSensor { get; set; } // 全GPUの中の最高値 (旧互換用)
@@ -100,9 +106,38 @@ namespace CpuThermoWatcher
         public bool Success { get; set; }
         public string Message { get; set; }
 
+        public float MaxCpuClock
+        {
+            get
+            {
+                if (CpuClocks == null || CpuClocks.Count == 0) return 0f;
+                float max = 0f;
+                for (int i = 0; i < CpuClocks.Count; i++)
+                {
+                    if (CpuClocks[i].Value > max) max = CpuClocks[i].Value;
+                }
+                return max;
+            }
+        }
+
+        public float AvgCpuClock
+        {
+            get
+            {
+                if (CpuClocks == null || CpuClocks.Count == 0) return 0f;
+                float sum = 0f;
+                for (int i = 0; i < CpuClocks.Count; i++)
+                {
+                    sum += CpuClocks[i].Value;
+                }
+                return sum / CpuClocks.Count;
+            }
+        }
+
         public CpuTemperatureSnapshot()
         {
             Sensors = new List<TemperatureReading>();
+            CpuClocks = new List<ClockReading>();
             Devices = new List<HardwareDeviceSummary>();
             Timestamp = DateTime.Now;
             Success = false;
@@ -127,11 +162,44 @@ namespace CpuThermoWatcher
             HardwareDeviceSummary dev = GetDevice(deviceId);
             return dev != null ? dev.MaxSensor : null;
         }
+
+        public bool IsAnyDeviceOverThreshold(Settings settings)
+        {
+            if (settings == null) return false;
+
+            if (MaxCpuSensor != null && MaxCpuSensor.Value >= settings.WarningThresholdCelsius)
+            {
+                return true;
+            }
+
+            if (MaxIGpuSensor != null && MaxIGpuSensor.Value >= settings.WarningThresholdIGpuCelsius)
+            {
+                return true;
+            }
+
+            if (Devices != null)
+            {
+                for (int i = 0; i < Devices.Count; i++)
+                {
+                    HardwareDeviceSummary dev = Devices[i];
+                    if (dev.Category == DeviceCategory.DGpu &&
+                        dev.MaxSensor != null &&
+                        dev.MaxSensor.Value >= settings.WarningThresholdDGpuCelsius)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
     }
 
     public class HardwareMonitor : IDisposable
     {
         private Computer _computer;
+        private List<PerformanceCounter> _clockCounters;
+        private bool _countersInitialized;
         private bool _isDisposed;
 
         public HardwareMonitor()
@@ -146,7 +214,41 @@ namespace CpuThermoWatcher
             catch (Exception ex)
             {
                 _computer = null;
-                System.Diagnostics.Debug.WriteLine("Failed to initialize LibreHardwareMonitor: " + ex.Message);
+                Debug.WriteLine("Failed to initialize LibreHardwareMonitor: " + ex.Message);
+            }
+        }
+
+        private void InitializeClockCounters()
+        {
+            if (_countersInitialized) return;
+            _clockCounters = new List<PerformanceCounter>();
+
+            try
+            {
+                PerformanceCounterCategory cat = new PerformanceCounterCategory("Processor Information");
+                string[] instances = cat.GetInstanceNames();
+
+                // 自然順ソート (0,0, 0,1, ... 0,15, 0,16 ...)
+                Array.Sort(instances, NaturalStringComparer.Instance);
+
+                foreach (string inst in instances)
+                {
+                    if (inst.IndexOf("Total", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                    try
+                    {
+                        PerformanceCounter pc = new PerformanceCounter("Processor Information", "Processor Frequency", inst, true);
+                        pc.NextValue(); // 初回サンプリング
+                        _clockCounters.Add(pc);
+                    }
+                    catch
+                    {
+                    }
+                }
+                _countersInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("InitializeClockCounters failed: " + ex.Message);
             }
         }
 
@@ -261,9 +363,11 @@ namespace CpuThermoWatcher
         {
             CpuTemperatureSnapshot snapshot = new CpuTemperatureSnapshot();
 
-            // 1. LibreHardwareMonitor によるダイレクト計測 (CPU & GPU)
+            // 1. LibreHardwareMonitor によるダイレクト計測 (CPU & GPU 温度およびクロック)
             string detectedCpuName = string.Empty;
             int dgpuCounter = 0;
+            List<ClockReading> lhmClocks = new List<ClockReading>();
+
             if (_computer != null)
             {
                 try
@@ -275,40 +379,12 @@ namespace CpuThermoWatcher
                             hardware.Update();
                             detectedCpuName = hardware.Name;
 
-                            foreach (ISensor sensor in hardware.Sensors)
-                            {
-                                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
-                                {
-                                    AddUniqueSensor(snapshot.Sensors, new TemperatureReading(
-                                        hardware.Name,
-                                        sensor.Name,
-                                        sensor.Value.Value,
-                                        sensor.SensorType.ToString(),
-                                        DeviceCategory.Cpu,
-                                        "CPU",
-                                        hardware.Name
-                                    ));
-                                }
-                            }
+                            CollectCpuSensors(hardware, hardware.Name, snapshot.Sensors, lhmClocks);
 
                             foreach (IHardware subHardware in hardware.SubHardware)
                             {
                                 subHardware.Update();
-                                foreach (ISensor sensor in subHardware.Sensors)
-                                {
-                                    if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
-                                    {
-                                        AddUniqueSensor(snapshot.Sensors, new TemperatureReading(
-                                            subHardware.Name,
-                                            sensor.Name,
-                                            sensor.Value.Value,
-                                            sensor.SensorType.ToString(),
-                                            DeviceCategory.Cpu,
-                                            "CPU",
-                                            hardware.Name
-                                        ));
-                                    }
-                                }
+                                CollectCpuSensors(subHardware, hardware.Name, snapshot.Sensors, lhmClocks);
                             }
                         }
                         else if (hardware.HardwareType == HardwareType.GpuNvidia ||
@@ -327,40 +403,12 @@ namespace CpuThermoWatcher
                             }
                             if (cat == DeviceCategory.DGpu) dgpuCounter++;
 
-                            foreach (ISensor sensor in hardware.Sensors)
-                            {
-                                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
-                                {
-                                    AddUniqueSensor(snapshot.Sensors, new TemperatureReading(
-                                        devName,
-                                        sensor.Name,
-                                        sensor.Value.Value,
-                                        "GPU",
-                                        cat,
-                                        devId,
-                                        devName
-                                    ));
-                                }
-                            }
+                            CollectGpuSensors(hardware, cat, devId, devName, snapshot.Sensors);
 
                             foreach (IHardware subHardware in hardware.SubHardware)
                             {
                                 subHardware.Update();
-                                foreach (ISensor sensor in subHardware.Sensors)
-                                {
-                                    if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
-                                    {
-                                        AddUniqueSensor(snapshot.Sensors, new TemperatureReading(
-                                            devName,
-                                            sensor.Name,
-                                            sensor.Value.Value,
-                                            "GPU",
-                                            cat,
-                                            devId,
-                                            devName
-                                        ));
-                                    }
-                                }
+                                CollectGpuSensors(subHardware, cat, devId, devName, snapshot.Sensors);
                             }
                         }
                     }
@@ -376,32 +424,50 @@ namespace CpuThermoWatcher
             MergeSensors(snapshot.Sensors, CoreTempReader.TryReadCoreTemp(), detectedCpuName);
             MergeSensors(snapshot.Sensors, AIDA64Reader.TryReadAIDA64(), detectedCpuName);
 
-            // 3. フォールバック: WMI (MSAcpi_ThermalZoneTemperature)
+            // 3. CPU コアごとのクロック取得 (LHM または Windows パフォーマンスカウンター)
+            if (lhmClocks.Count > 0)
+            {
+                lhmClocks.Sort(delegate(ClockReading a, ClockReading b)
+                {
+                    return NaturalStringComparer.CompareNatural(a.CoreName, b.CoreName);
+                });
+                snapshot.CpuClocks = lhmClocks;
+            }
+            else
+            {
+                snapshot.CpuClocks = ReadPerformanceCounterClocks();
+            }
+
+            // 4. フォールバック: WMI (MSAcpi_ThermalZoneTemperature)
             if (snapshot.Sensors.Count == 0)
             {
                 try
                 {
                     using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(@"root\wmi", "SELECT * FROM MSAcpi_ThermalZoneTemperature"))
+                    using (ManagementObjectCollection results = searcher.Get())
                     {
-                        foreach (ManagementObject obj in searcher.Get())
+                        foreach (ManagementObject obj in results)
                         {
-                            object val = obj["CurrentTemperature"];
-                            if (val != null)
+                            using (obj)
                             {
-                                double kelvinTenths = Convert.ToDouble(val);
-                                float celsius = (float)((kelvinTenths / 10.0) - 273.15);
-                                string instanceName = Convert.ToString(obj["InstanceName"]);
-                                if (string.IsNullOrEmpty(instanceName)) instanceName = "ACPI Thermal Zone";
+                                object val = obj["CurrentTemperature"];
+                                if (val != null)
+                                {
+                                    double kelvinTenths = Convert.ToDouble(val);
+                                    float celsius = (float)((kelvinTenths / 10.0) - 273.15);
+                                    string instanceName = Convert.ToString(obj["InstanceName"]);
+                                    if (string.IsNullOrEmpty(instanceName)) instanceName = "ACPI Thermal Zone";
 
-                                snapshot.Sensors.Add(new TemperatureReading(
-                                    "ACPI WMI",
-                                    instanceName,
-                                    celsius,
-                                    "ThermalZone",
-                                    DeviceCategory.Cpu,
-                                    "CPU",
-                                    "ACPI WMI"
-                                ));
+                                    snapshot.Sensors.Add(new TemperatureReading(
+                                        "ACPI WMI",
+                                        instanceName,
+                                        celsius,
+                                        "ThermalZone",
+                                        DeviceCategory.Cpu,
+                                        "CPU",
+                                        "ACPI WMI"
+                                    ));
+                                }
                             }
                         }
                     }
@@ -412,7 +478,7 @@ namespace CpuThermoWatcher
                 }
             }
 
-            // 4. デバイス一覧 (Devices) の集約と最高温度の算出
+            // 5. デバイス一覧 (Devices) の集約と最高温度の算出
             if (snapshot.Sensors.Count > 0)
             {
                 BuildDeviceSummaries(snapshot);
@@ -427,6 +493,105 @@ namespace CpuThermoWatcher
             }
 
             return snapshot;
+        }
+
+        private static void CollectCpuSensors(
+            IHardware sourceHardware,
+            string cpuDeviceName,
+            List<TemperatureReading> sensors,
+            List<ClockReading> clocks)
+        {
+            foreach (ISensor sensor in sourceHardware.Sensors)
+            {
+                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
+                {
+                    AddUniqueSensor(sensors, new TemperatureReading(
+                        sourceHardware.Name,
+                        sensor.Name,
+                        sensor.Value.Value,
+                        sensor.SensorType.ToString(),
+                        DeviceCategory.Cpu,
+                        "CPU",
+                        cpuDeviceName
+                    ));
+                }
+                else if (sensor.SensorType == SensorType.Clock && sensor.Value.HasValue && IsCpuCoreClockSensor(sensor.Name))
+                {
+                    float val = sensor.Value.Value;
+                    if (!float.IsNaN(val) && val > 100.0f && val < 10000.0f)
+                    {
+                        clocks.Add(new ClockReading(sensor.Name, val));
+                    }
+                }
+            }
+        }
+
+        private static bool IsCpuCoreClockSensor(string sensorName)
+        {
+            if (string.IsNullOrEmpty(sensorName)) return false;
+            if (sensorName.IndexOf("Bus", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            if (sensorName.IndexOf("FCLK", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            if (sensorName.IndexOf("UCLK", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            if (sensorName.IndexOf("MCLK", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            if (sensorName.IndexOf("Memory", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            return sensorName.IndexOf("Core", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   sensorName.IndexOf("#", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static void CollectGpuSensors(
+            IHardware sourceHardware,
+            DeviceCategory category,
+            string deviceId,
+            string deviceName,
+            List<TemperatureReading> sensors)
+        {
+            foreach (ISensor sensor in sourceHardware.Sensors)
+            {
+                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0.0f && sensor.Value.Value < 150.0f)
+                {
+                    AddUniqueSensor(sensors, new TemperatureReading(
+                        deviceName,
+                        sensor.Name,
+                        sensor.Value.Value,
+                        "GPU",
+                        category,
+                        deviceId,
+                        deviceName
+                    ));
+                }
+            }
+        }
+
+        private List<ClockReading> ReadPerformanceCounterClocks()
+        {
+            List<ClockReading> list = new List<ClockReading>();
+            try
+            {
+                InitializeClockCounters();
+                if (_clockCounters != null && _clockCounters.Count > 0)
+                {
+                    for (int i = 0; i < _clockCounters.Count; i++)
+                    {
+                        try
+                        {
+                            float freq = _clockCounters[i].NextValue();
+                            if (freq > 0.0f)
+                            {
+                                string coreLabel = string.Format("Core #{0}", i + 1);
+                                list.Add(new ClockReading(coreLabel, freq));
+                            }
+                        }
+                        catch
+                        {
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("ReadPerformanceCounterClocks failed: " + ex.Message);
+            }
+            return list;
         }
 
         private static void BuildDeviceSummaries(CpuTemperatureSnapshot snapshot)
@@ -501,7 +666,7 @@ namespace CpuThermoWatcher
                 }
                 else
                 {
-                    displayName = id.Replace(":", " #") + " (" + devName + ")";
+                    displayName = UiHelper.FormatDeviceLabel(id) + " (" + devName + ")";
                 }
 
                 HardwareDeviceSummary summary = new HardwareDeviceSummary(id, cat, devName, displayName, max);
@@ -511,7 +676,6 @@ namespace CpuThermoWatcher
             snapshot.MaxCpuSensor = snapshot.GetMaxSensor("CPU");
             snapshot.MaxIGpuSensor = snapshot.GetMaxSensor("iGPU");
             snapshot.MaxGpuSensor = FindMaxGpuSensor(snapshot.Sensors);
-            snapshot.MaxSensor = snapshot.MaxCpuSensor ?? snapshot.MaxGpuSensor;
         }
 
         private static TemperatureReading FindMaxGpuSensor(List<TemperatureReading> sensors)
@@ -573,6 +737,17 @@ namespace CpuThermoWatcher
                     }
                     _computer = null;
                 }
+
+                if (_clockCounters != null)
+                {
+                    for (int i = 0; i < _clockCounters.Count; i++)
+                    {
+                        try { _clockCounters[i].Dispose(); } catch { }
+                    }
+                    _clockCounters.Clear();
+                    _clockCounters = null;
+                }
+
                 _isDisposed = true;
             }
         }

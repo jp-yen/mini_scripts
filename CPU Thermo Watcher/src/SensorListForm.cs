@@ -16,15 +16,16 @@ namespace CpuThermoWatcher
     {
         private DataGridView _grid;
         private Label _statusLabel;
-        private float _threshold;
+        private Settings _settings;
 
-        public SensorListForm(CpuTemperatureSnapshot initialSnapshot, float threshold)
+        public SensorListForm(CpuTemperatureSnapshot initialSnapshot, Settings settings)
         {
-            _threshold = threshold;
+            _settings = settings;
             InitializeComponent();
+            UiHelper.EnableDoubleBuffering(_grid);
             if (initialSnapshot != null)
             {
-                UpdateSnapshot(initialSnapshot, threshold);
+                UpdateSnapshot(initialSnapshot, settings);
             }
         }
 
@@ -36,12 +37,7 @@ namespace CpuThermoWatcher
             this.Icon = SystemIcons.Information;
 
             // DPI スケールの動的計算
-            float dpiScale = 1.0f;
-            using (Graphics g = this.CreateGraphics())
-            {
-                dpiScale = g.DpiY / 96.0f;
-            }
-            if (dpiScale < 1.0f) dpiScale = 1.0f;
+            float dpiScale = UiHelper.GetDpiScale(this);
 
             this.ClientSize = new Size((int)(720 * dpiScale), (int)(520 * dpiScale));
             this.MinimumSize = new Size((int)(560 * dpiScale), (int)(380 * dpiScale));
@@ -121,13 +117,13 @@ namespace CpuThermoWatcher
             this.Controls.Add(topPanel);
         }
 
-        public void UpdateSnapshot(CpuTemperatureSnapshot snapshot, float threshold)
+        public void UpdateSnapshot(CpuTemperatureSnapshot snapshot, Settings settings)
         {
-            _threshold = threshold;
+            _settings = settings;
 
             if (this.InvokeRequired)
             {
-                this.BeginInvoke(new Action<CpuTemperatureSnapshot, float>(UpdateSnapshot), snapshot, threshold);
+                this.BeginInvoke(new Action<CpuTemperatureSnapshot, Settings>(UpdateSnapshot), snapshot, settings);
                 return;
             }
 
@@ -147,7 +143,7 @@ namespace CpuThermoWatcher
                     HardwareDeviceSummary dev = snapshot.Devices[i];
                     if (dev.MaxSensor != null)
                     {
-                        summaries.Add(string.Format("{0}: {1:F1}℃", dev.DeviceId.Replace(":", " #"), dev.MaxSensor.Value));
+                        summaries.Add(string.Format("{0}: {1:F1}℃", UiHelper.FormatDeviceLabel(dev.DeviceId), dev.MaxSensor.Value));
                     }
                 }
             }
@@ -171,7 +167,7 @@ namespace CpuThermoWatcher
                 for (int i = 0; i < snapshot.Sensors.Count; i++)
                 {
                     TemperatureReading r = snapshot.Sensors[i];
-                    string devLabel = (r.DeviceId ?? "CPU").Replace(":", " #");
+                    string devLabel = UiHelper.FormatDeviceLabel(r.DeviceId);
                     _grid.Rows.Add(devLabel, r.HardwareName, r.SensorName, string.Format("{0:F1} ℃", r.Value));
                 }
 
@@ -198,6 +194,9 @@ namespace CpuThermoWatcher
 
                 row.DefaultCellStyle.Font = _grid.Font;
 
+                float warnThreshold = _settings != null ? _settings.GetWarningThreshold(r.DeviceId) : 80.0f;
+                bool isWarning = r.Value >= warnThreshold;
+
                 // 各デバイスの最高温度判定
                 HardwareDeviceSummary dev = snapshot.GetDevice(r.DeviceId);
                 bool isDeviceMax = (dev != null && dev.MaxSensor != null &&
@@ -215,30 +214,17 @@ namespace CpuThermoWatcher
                     }
                     else
                     {
-                        if (string.Equals(r.DeviceId, "dGPU:0", StringComparison.OrdinalIgnoreCase))
-                        {
-                            row.DefaultCellStyle.BackColor = Color.FromArgb(255, 245, 225); // ソフトオレンジ (dGPU #0)
-                        }
-                        else
-                        {
-                            row.DefaultCellStyle.BackColor = Color.FromArgb(255, 235, 240); // ソフトピンク (dGPU #1+)
-                        }
-                    }
-
-                    if (r.Value >= _threshold)
-                    {
-                        row.DefaultCellStyle.ForeColor = Color.Crimson;
-                    }
-                    else
-                    {
-                        row.DefaultCellStyle.ForeColor = Color.Black;
+                        row.DefaultCellStyle.BackColor = string.Equals(r.DeviceId, "dGPU:0", StringComparison.OrdinalIgnoreCase)
+                            ? Color.FromArgb(255, 245, 225)  // ソフトオレンジ (dGPU #0)
+                            : Color.FromArgb(255, 235, 240); // ソフトピンク (dGPU #1+)
                     }
                 }
                 else
                 {
                     row.DefaultCellStyle.BackColor = Color.White;
-                    row.DefaultCellStyle.ForeColor = (r.Value >= _threshold) ? Color.Crimson : Color.Black;
                 }
+
+                row.DefaultCellStyle.ForeColor = isWarning ? Color.Crimson : Color.Black;
             }
         }
     }

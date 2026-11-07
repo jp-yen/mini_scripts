@@ -9,7 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Reflection;
 using System.Windows.Forms;
 
 namespace CpuThermoWatcher
@@ -17,6 +16,7 @@ namespace CpuThermoWatcher
     public class HistoryViewerForm : Form
     {
         private DataGridView _grid;
+        private Font _boldCellFont;
         private ComboBox _cmbRange;
         private DateTimePicker _dtpStart;
         private DateTimePicker _dtpEnd;
@@ -32,25 +32,10 @@ namespace CpuThermoWatcher
         public HistoryViewerForm()
         {
             InitializeComponent();
-            EnableDoubleBuffering(_grid);
+            UiHelper.EnableDoubleBuffering(_grid);
             LoadDeviceList();
             LoadSensorList();
             ApplyFilter();
-        }
-
-        private static void EnableDoubleBuffering(Control ctl)
-        {
-            try
-            {
-                PropertyInfo prop = typeof(Control).GetProperty("DoubleBuffered", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (prop != null)
-                {
-                    prop.SetValue(ctl, true, null);
-                }
-            }
-            catch
-            {
-            }
         }
 
         private void InitializeComponent()
@@ -60,11 +45,7 @@ namespace CpuThermoWatcher
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Icon = SystemIcons.Application;
 
-            using (Graphics g = this.CreateGraphics())
-            {
-                _dpiScale = g.DpiY / 96.0f;
-            }
-            if (_dpiScale < 1.0f) _dpiScale = 1.0f;
+            _dpiScale = UiHelper.GetDpiScale(this);
 
             this.ClientSize = new Size((int)(1100 * _dpiScale), (int)(640 * _dpiScale));
             this.MinimumSize = new Size((int)(800 * _dpiScale), (int)(480 * _dpiScale));
@@ -101,7 +82,7 @@ namespace CpuThermoWatcher
 
             _cmbRange = new ComboBox();
             _cmbRange.DropDownStyle = ComboBoxStyle.DropDownList;
-            _cmbRange.Items.AddRange(new object[] { "直近 1 時間", "直近 6 時間", "直近 24 時間", "直近 7 日間", "全期間", "カスタム指定..." });
+            _cmbRange.Items.AddRange(UiHelper.TimeRangePresets);
             _cmbRange.SelectedIndex = 2; // デフォルト直近24時間
             _cmbRange.Width = (int)(135 * _dpiScale);
             _cmbRange.Margin = new Padding(0, 0, (int)(8 * _dpiScale), 0);
@@ -335,7 +316,7 @@ namespace CpuThermoWatcher
 
         private void OnRangeIndexChanged(object sender, EventArgs e)
         {
-            bool isCustom = (_cmbRange.SelectedIndex == 5);
+            bool isCustom = (_cmbRange.SelectedIndex == UiHelper.CustomRangeIndex);
             _dtpStart.Visible = isCustom;
             _lblTilde.Visible = isCustom;
             _dtpEnd.Visible = isCustom;
@@ -377,22 +358,7 @@ namespace CpuThermoWatcher
             out bool onlyDeviceMax,
             out int limit)
         {
-            startTime = null;
-            endTime = null;
-            DateTime now = DateTime.Now;
-
-            switch (_cmbRange.SelectedIndex)
-            {
-                case 0: startTime = now.AddHours(-1); break;
-                case 1: startTime = now.AddHours(-6); break;
-                case 2: startTime = now.AddHours(-24); break;
-                case 3: startTime = now.AddDays(-7); break;
-                case 4: startTime = null; break; // 全期間
-                case 5:
-                    startTime = _dtpStart.Value;
-                    endTime = _dtpEnd.Value;
-                    break;
-            }
+            UiHelper.ResolveTimeRange(_cmbRange.SelectedIndex, _dtpStart.Value, _dtpEnd.Value, out startTime, out endTime);
 
             deviceId = _cmbDevice.SelectedItem != null ? _cmbDevice.SelectedItem.ToString() : "すべて";
 
@@ -424,6 +390,11 @@ namespace CpuThermoWatcher
         public void OnLogWritten()
         {
             if (this.IsDisposed) return;
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke((MethodInvoker)OnLogWritten);
+                return;
+            }
             ApplyFilter();
         }
 
@@ -445,6 +416,11 @@ namespace CpuThermoWatcher
             {
                 _lblSummary.Text = "条件に一致する履歴レコードは見つかりませんでした。";
                 return;
+            }
+
+            if (_boldCellFont == null)
+            {
+                _boldCellFont = new Font(_grid.Font, FontStyle.Bold);
             }
 
             float minTemp = float.MaxValue;
@@ -478,7 +454,7 @@ namespace CpuThermoWatcher
                 else if (r.IsDeviceMax)
                 {
                     row.DefaultCellStyle.BackColor = Color.FromArgb(240, 248, 255);
-                    row.Cells["SensorName"].Style.Font = new Font(_grid.Font, FontStyle.Bold);
+                    row.Cells["SensorName"].Style.Font = _boldCellFont;
                 }
             }
             _grid.ResumeLayout();
@@ -525,6 +501,16 @@ namespace CpuThermoWatcher
                     }
                 }
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && _boldCellFont != null)
+            {
+                _boldCellFont.Dispose();
+                _boldCellFont = null;
+            }
+            base.Dispose(disposing);
         }
     }
 }
